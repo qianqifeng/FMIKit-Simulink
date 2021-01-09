@@ -10,28 +10,39 @@ static void cb_logMessage(fmi2ComponentEnvironment componentEnvironment, fmi2Str
 	printf("%s\n", message);
 }
 
-//static void* cb_allocateMemory(size_t nobj, size_t size) {
-//	return calloc(nobj, size);
-//}
-//
-//static void cb_freeMemory(void* obj) {
-//	free(obj);
-//}
+static void cb_logFunctionCall(fmi2Status status, const char *instanceName, const char *message) {
+	printf("%s -> %d\n", message, status);
+}
 
 #define CHECK_STATUS(S) { status = S; if (status != fmi2OK) goto TERMINATE; }
+
+// #define ASSERT_NO_ERROR(F, M) __try { assertNoError(F, M); } __except (EXCEPTION_EXECUTE_HANDLER) { error("%s. The FMU crashed (exception code: %s).", M, exceptionCodeToString(GetExceptionCode())); }
+
 
 int main(int argc, char *argv[]) {
 
 	fmi2Status status = fmi2OK;
 
-	FMI2Instance *instance = FMI2Instantiate("E:\\Development\\FMIKit-Simulink\\examples\\BouncingBall", "bouncingBall", fmi2CoSimulation, "{8c4e810f-3df3-4a00-8276-176fa3c9f003}", NULL, fmi2False, fmi2False);
+	FMI2Instance *instance = FMI2Instantiate("E:\\Development\\FMIKit-Simulink\\examples\\BouncingBall", 
+		"BouncingBall", "bouncingBall", fmi2CoSimulation, "{8c4e810f-3df3-4a00-8276-176fa3c9f003}", NULL, fmi2False, fmi2False);
+
+	instance->logFunctionCall = cb_logFunctionCall;
 
 	if (!instance) return 1;
 
 	fmi2Real time = 0;
 	fmi2Real stepSize = 0.01;
 
-	CHECK_STATUS(FMI2SetupExperiment(instance, fmi2False, 0, time, fmi2False, 0))
+	__try {
+		//volatile int *pInt = 0x00000000;
+		//*pInt = 20;
+		CHECK_STATUS(FMI2SetupExperiment(instance, fmi2False, 0, time, fmi2False, 0))
+	} __except (EXCEPTION_EXECUTE_HANDLER) {
+		const char *code = exceptionCodeToString(GetExceptionCode());
+		printf("The FMU instance %s caused a %s (exception code 0x%lX).\n", instance->name, code, GetExceptionCode());
+		status = fmi2Fatal;
+		goto TERMINATE;
+	}
 
 	CHECK_STATUS(FMI2EnterInitializationMode(instance))
 
@@ -45,7 +56,7 @@ int main(int argc, char *argv[]) {
 
 		fmi2ValueReference vr_h = 0;
 		fmi2Real h;
-//
+
 		// get an output
 		CHECK_STATUS(FMI2GetReal(instance, &vr_h, 1, &h));
 
@@ -56,11 +67,11 @@ int main(int argc, char *argv[]) {
 	}
 //
 TERMINATE:
-//
-//	// clean up
-//	if (status < fmi2Fatal) {
-//		Heater_fmi2FreeInstance(c);
-//	}
+
+	// clean up
+	if (status < fmi2Fatal) {
+		FMI2FreeInstance(instance);
+	}
 
 	return status;
 }
