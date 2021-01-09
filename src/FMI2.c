@@ -2,6 +2,7 @@
 #include <direct.h>
 #include "Shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
+#define strdup _strdup
 #else
 #include <stdarg.h>
 #include <dlfcn.h>
@@ -29,6 +30,24 @@ static void cb_freeMemory(void* obj) {
 	instance->fmi2 ## f = (fmi2 ## f ## TYPE*)GetProcAddress(instance->libraryHandle, "fmi2" #f); \
 	if (!instance->fmi2 ## f) goto fail;
 
+#define LOG(...) \
+	if (instance->logFunctionCall) { \
+		instance->logFunctionCall(status, instance->name, __VA_ARGS__); \
+	}
+
+#define CALL(f) \
+	fmi2Status status = instance-> ## f (instance->component); \
+	if (instance->logFunctionCall) { \
+		instance->logFunctionCall(status, instance->name, #f "(component=0x%p)", instance->component); \
+	} \
+	return status;
+
+#define CALL_ARGS(f, m, ...) \
+	fmi2Status status = instance-> ## f (instance->component, __VA_ARGS__); \
+	if (instance->logFunctionCall) { \
+		instance->logFunctionCall(status, instance->name, #f "(component=0x%p" m ")", instance->component, __VA_ARGS__); \
+	} \
+	return status;
 
 /***************************************************
 Types for Functions for FMI2 for Co-Simulation
@@ -184,30 +203,19 @@ fmi2Status FMI2SetupExperiment(FMI2Instance *instance,
 }
 
 fmi2Status FMI2EnterInitializationMode(FMI2Instance *instance) {
-
-	if (!instance) return fmi2Error;
-
-	fmi2Status status = instance->fmi2EnterInitializationMode(instance->component);
-
-	if (instance->logFunctionCall) {
-		char message[1024];
-		snprintf(message, 1024, "fmi2EnterInitializationMode(component=0x%p)", instance->component);
-		instance->logFunctionCall(status, instance->name, message);
-	}
-
-	return status;
+	CALL(fmi2EnterInitializationMode)
 }
 
 fmi2Status FMI2ExitInitializationMode(FMI2Instance *instance) {
-	return instance->fmi2ExitInitializationMode(instance->component);
+	CALL(fmi2ExitInitializationMode)
 }
 
 fmi2Status FMI2Terminate(FMI2Instance *instance) {
-	return instance->fmi2Terminate(instance->component);
+	CALL(fmi2Terminate)
 }
 
 fmi2Status FMI2Reset(FMI2Instance *instance) {
-	return instance->fmi2Reset(instance->component);
+	CALL(fmi2Reset)
 }
 
 /* Getting and setting variable values */
@@ -245,27 +253,28 @@ fmi2Status FMI2SetString(FMI2Instance *instance, const fmi2ValueReference vr[], 
 
 /* Getting and setting the internal FMU state */
 fmi2Status FMI2GetFMUstate(FMI2Instance *instance, fmi2FMUstate* FMUstate) {
-	return instance->fmi2GetFMUstate(instance->component, FMUstate);
+	//return instance->fmi2GetFMUstate(instance->component, FMUstate);
+	CALL_ARGS(fmi2GetFMUstate, ", FMUstate=%p", FMUstate)
 }
 
 fmi2Status FMI2SetFMUstate(FMI2Instance *instance, fmi2FMUstate  FMUstate) {
-	return instance->fmi2SetFMUstate(instance->component, FMUstate);
+	CALL_ARGS(fmi2SetFMUstate, ", FMUstate=%p", FMUstate)
 }
 
 fmi2Status FMI2FreeFMUstate(FMI2Instance *instance, fmi2FMUstate* FMUstate) {
-	return instance->fmi2FreeFMUstate(instance->component, FMUstate);
+	CALL_ARGS(fmi2FreeFMUstate, ", FMUstate=%p", FMUstate)
 }
 
 fmi2Status FMI2SerializedFMUstateSize(FMI2Instance *instance, fmi2FMUstate  FMUstate, size_t* size) {
-	return instance->fmi2SerializedFMUstateSize(instance->component, FMUstate, size);
+	CALL_ARGS(fmi2SerializedFMUstateSize, ", FMUstate=%p, size=%zu", FMUstate, size);
 }
 
 fmi2Status FMI2SerializeFMUstate(FMI2Instance *instance, fmi2FMUstate  FMUstate, fmi2Byte serializedState[], size_t size) {
-	return instance->fmi2SerializeFMUstate(instance->component, FMUstate, serializedState, size);
+	CALL_ARGS(fmi2SerializeFMUstate, ", FMUstate=%p, serializedState=%p, size=%zu", FMUstate, serializedState, size);
 }
 
 fmi2Status FMI2DeSerializeFMUstate(FMI2Instance *instance, const fmi2Byte serializedState[], size_t size, fmi2FMUstate* FMUstate) {
-	return instance->fmi2DeSerializeFMUstate(instance->component, FMUstate, serializedState, size);
+	CALL_ARGS(fmi2DeSerializeFMUstate, ", serializedState=%p, size=%zu, FMUstate=%p", serializedState, size, FMUstate);
 }
 
 /* Getting partial derivatives */
@@ -283,7 +292,7 @@ Types for Functions for FMI2 for Model Exchange
 
 /* Enter and exit the different modes */
 fmi2Status FMI2EnterEventMode(FMI2Instance *instance) {
-	return instance->fmi2EnterEventMode(instance->component);
+	CALL(fmi2EnterEventMode)
 }
 
 fmi2Status FMI2NewDiscreteStates(FMI2Instance *instance, fmi2EventInfo* fmi2eventInfo) {
@@ -291,7 +300,7 @@ fmi2Status FMI2NewDiscreteStates(FMI2Instance *instance, fmi2EventInfo* fmi2even
 }
 
 fmi2Status FMI2EnterContinuousTimeMode(FMI2Instance *instance) {
-	return instance->fmi2EnterContinuousTimeMode(instance->component);
+	CALL(fmi2EnterContinuousTimeMode)
 }
 
 fmi2Status FMI2CompletedIntegratorStep(FMI2Instance *instance,
@@ -327,7 +336,6 @@ fmi2Status FMI2GetNominalsOfContinuousStates(FMI2Instance *instance, fmi2Real x_
 	return instance->fmi2GetNominalsOfContinuousStates(instance->component, x_nominal, nx);
 }
 
-
 /***************************************************
 Types for Functions for FMI2 for Co-Simulation
 ****************************************************/
@@ -351,11 +359,12 @@ fmi2Status FMI2DoStep(FMI2Instance *instance,
 	fmi2Real      currentCommunicationPoint,
 	fmi2Real      communicationStepSize,
 	fmi2Boolean   noSetFMUStatePriorToCurrentPoint) {
-	return instance->fmi2DoStep(instance->component, currentCommunicationPoint, communicationStepSize, noSetFMUStatePriorToCurrentPoint);
+	CALL_ARGS(fmi2DoStep, ", currentCommunicationPoint=%g, communicationStepSize=%g, noSetFMUStatePriorToCurrentPoint=%d",
+		currentCommunicationPoint, communicationStepSize, noSetFMUStatePriorToCurrentPoint)
 }
 
 fmi2Status FMI2CancelStep(FMI2Instance *instance) {
-	return instance->fmi2CancelStep(instance->component);
+	CALL(fmi2CancelStep);
 }
 
 /* Inquire slave status */

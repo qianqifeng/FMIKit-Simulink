@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdarg.h>
 
 //// no runtime resources
 //#define RESOURCE_LOCATION ""
@@ -10,8 +11,12 @@ static void cb_logMessage(fmi2ComponentEnvironment componentEnvironment, fmi2Str
 	printf("%s\n", message);
 }
 
-static void cb_logFunctionCall(fmi2Status status, const char *instanceName, const char *message) {
-	printf("%s -> %d\n", message, status);
+static void cb_logFunctionCall(fmi2Status status, const char *instanceName, const char *message, ...) {
+	va_list args;
+	va_start(args, message);
+	vprintf(message, args);
+	va_end(args);
+	printf(" -> %d\n", status);
 }
 
 #define CHECK_STATUS(S) { status = S; if (status != fmi2OK) goto TERMINATE; }
@@ -24,7 +29,7 @@ int main(int argc, char *argv[]) {
 	fmi2Status status = fmi2OK;
 
 	FMI2Instance *instance = FMI2Instantiate("E:\\Development\\FMIKit-Simulink\\examples\\BouncingBall", 
-		"BouncingBall", "bouncingBall", fmi2CoSimulation, "{8c4e810f-3df3-4a00-8276-176fa3c9f003}", NULL, fmi2False, fmi2False);
+		"BouncingBall", "bouncingBall", fmi2CoSimulation, "{8c4e810f-3df3-4a00-8276-176fa3c9f003}", fmi2False, fmi2False);
 
 	instance->logFunctionCall = cb_logFunctionCall;
 
