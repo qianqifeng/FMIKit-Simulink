@@ -30,11 +30,6 @@ static void cb_freeMemory(void* obj) {
 	instance->fmi2 ## f = (fmi2 ## f ## TYPE*)GetProcAddress(instance->libraryHandle, "fmi2" #f); \
 	if (!instance->fmi2 ## f) goto fail;
 
-#define LOG(...) \
-	if (instance->logFunctionCall) { \
-		instance->logFunctionCall(status, instance->name, __VA_ARGS__); \
-	}
-
 #define CALL(f) \
 	fmi2Status status = instance-> ## f (instance->component); \
 	if (instance->logFunctionCall) { \
@@ -54,14 +49,25 @@ Types for Functions for FMI2 for Co-Simulation
 ****************************************************/
 
 /* Inquire version numbers of header files and setting logging status */
-//const char* fmi2GetTypesPlatform(void);
+const char* FMI2GetTypesPlatform(FMI2Instance *instance) {
+	if (!instance) return NULL;
+	if (instance->logFunctionCall) {
+			instance->logFunctionCall(fmi2OK, instance->name, "fmi2GetTypesPlatform()");
+	}
+	return instance->fmi2GetTypesPlatform();
+}
 
-//const char* fmi2GetVersion(void);
+const char* FMI2GetVersion(FMI2Instance *instance) {
+	if (!instance) return NULL;
+	if (instance->logFunctionCall) {
+		instance->logFunctionCall(fmi2OK, instance->name, "fmi2GetVersion()");
+	}
+	return instance->fmi2GetVersion();
+}
 
-//fmi2Status  fmi2SetDebugLogging(fmi2Component c,
-//	fmi2Boolean loggingOn,
-//	size_t nCategories,
-//	const fmi2String categories[]);
+fmi2Status FMI2SetDebugLogging(FMI2Instance *instance, fmi2Boolean loggingOn, size_t nCategories, const fmi2String categories[]) {
+	CALL_ARGS(fmi2SetDebugLogging, ", loggingOn=%d, nCategories=%zu, categories=0x%p", loggingOn, nCategories, categories);
+}
 
 /* Creation and destruction of FMU instances and setting debug status */
 FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier, fmi2String instanceName, fmi2Type fmuType, fmi2String guid, fmi2Boolean visible, fmi2Boolean loggingOn) {

@@ -31,7 +31,15 @@ int main(int argc, char *argv[]) {
 	FMI2Instance *instance = FMI2Instantiate("E:\\Development\\FMIKit-Simulink\\examples\\BouncingBall", 
 		"BouncingBall", "bouncingBall", fmi2CoSimulation, "{8c4e810f-3df3-4a00-8276-176fa3c9f003}", fmi2False, fmi2False);
 
+	const char *categories[2] = {"a", "b"};
+
 	instance->logFunctionCall = cb_logFunctionCall;
+
+	const char* version = FMI2GetVersion(instance);
+
+	const char* platform = FMI2GetTypesPlatform(instance);
+
+	FMI2SetDebugLogging(instance, fmi2False, 2, categories);
 
 	if (!instance) return 1;
 

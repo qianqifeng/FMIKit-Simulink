@@ -182,6 +182,17 @@ typedef struct {
 
 } FMI2Instance;
 
+/***************************************************
+Common Functions
+****************************************************/
+
+/* Inquire version numbers of header files and setting logging status */
+const char* FMI2GetTypesPlatform(FMI2Instance *instance);
+
+const char* FMI2GetVersion(FMI2Instance *instance);
+
+fmi2Status FMI2SetDebugLogging(FMI2Instance *instance, fmi2Boolean loggingOn, size_t nCategories, const fmi2String categories[]);
+
 FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier, fmi2String instanceName, fmi2Type fmuType, fmi2String guid, fmi2Boolean visible, fmi2Boolean loggingOn);
 
 void FMI2FreeInstance(FMI2Instance *instance);
