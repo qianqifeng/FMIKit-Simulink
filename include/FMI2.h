@@ -91,6 +91,13 @@ typedef enum {
 
 } FMI2State;
 
+typedef enum {
+	FMI2RealType,
+	FMI2IntegerType,
+	FMI2BooleanType,
+	FMI2StringType
+} FMI2VariableType;
+
 typedef void FMI2LogFunctionCallTYPE(fmi2Status status, const char *instanceName, const char *message, ...);
 
 typedef void FMI2LogMessageTYPE(fmi2String instanceName,
@@ -169,6 +176,12 @@ typedef struct {
 #endif
 
 	FMI2LogFunctionCallTYPE *logFunctionCall;
+
+	char *buf1;
+	char *buf2;
+
+	size_t bufsize1;
+	size_t bufsize2;
 
 	fmi2Component component;
 

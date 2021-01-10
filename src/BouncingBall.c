@@ -67,16 +67,17 @@ int main(int argc, char *argv[]) {
 
 		time = nSteps * stepSize;
 
-		fmi2ValueReference vr_h = 0;
-		fmi2Real h;
+		fmi2ValueReference vr[2] = { 0, 1 };
+		fmi2Real value[2];
 
 		// get an output
-		CHECK_STATUS(FMI2GetReal(instance, &vr_h, 1, &h));
+		CHECK_STATUS(FMI2GetReal(instance, vr, 2, value));
+
+		printf("%.2f, %.2f\n", time, value[0]);
 
 		// perform a simulation step
 		CHECK_STATUS(FMI2DoStep(instance, time, stepSize, fmi2True));
 
-		printf("%.2f, %.2f\n", time, h);
 	}
 //
 TERMINATE:

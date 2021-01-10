@@ -79,6 +79,12 @@ FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier,
 		return NULL;
 	}
 
+	instance->bufsize1 = 4;
+	instance->bufsize2 = 4;
+
+	instance->buf1 = (char*)calloc(instance->bufsize1, sizeof(char));
+	instance->buf2 = (char*)calloc(instance->bufsize1, sizeof(char));
+
 	instance->name = strdup(instanceName);
 
 # ifdef _WIN32
@@ -224,9 +230,69 @@ fmi2Status FMI2Reset(FMI2Instance *instance) {
 	CALL(fmi2Reset)
 }
 
+static void logArray(FMI2Instance *instance, const char *format, const fmi2ValueReference vr[], size_t nvr, void *value, FMI2VariableType variableType, fmi2Status status) {
+
+	size_t pos = 0;
+
+	do {
+		pos += snprintf(&instance->buf1[pos], instance->bufsize1 - pos, "{");
+
+		for (size_t i = 0; i < nvr; i++) {
+
+			pos += snprintf(&instance->buf1[pos], instance->bufsize1 - pos, i < nvr - 1 ? "%u, " : "%u", vr[i]);
+
+			if (pos > instance->bufsize1 - 2) {
+				pos = 0;
+				instance->bufsize1 *= 2;
+				instance->buf1 = (char*)realloc(instance->buf1, instance->bufsize1);
+				break;
+			}
+		}
+	} while (pos == 0);
+
+	pos += snprintf(&instance->buf1[pos], instance->bufsize1 - pos, "}");
+
+	pos = 0;
+
+	do {
+		pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, "{");
+
+		for (size_t i = 0; i < nvr; i++) {
+
+			switch (variableType) {
+			case FMI2RealType:
+				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "%g, " : "%g", ((fmi2Real *)value)[i]);
+				break;
+			case FMI2IntegerType:
+			case FMI2BooleanType:
+				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "%d, " : "%d", ((int *)value)[i]);
+				break;
+			case FMI2StringType:
+				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "\"%s\", " : "\"%s\"", ((fmi2String *)value)[i]);
+				break;
+			}
+			
+			if (pos > instance->bufsize2 - 2) {
+				pos = 0;
+				instance->bufsize2 *= 2;
+				instance->buf2 = (char*)realloc(instance->buf2, instance->bufsize2);
+				break;
+			}
+		}
+	} while (pos == 0);
+
+	pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, "}");
+
+	instance->logFunctionCall(status, instance->name, format, instance->component, instance->buf1, nvr, instance->buf2);
+}
+
 /* Getting and setting variable values */
 fmi2Status FMI2GetReal(FMI2Instance *instance, const fmi2ValueReference vr[], size_t nvr, fmi2Real value[]) {
-	return instance->fmi2GetReal(instance->component, vr, nvr, value);
+	fmi2Status status = instance->fmi2GetReal(instance->component, vr, nvr, value);
+	if (instance->logFunctionCall) {
+		logArray(instance, "fmi2GetReal(component=0x%p, vr=%s, nvr=%zu, value=%s)", vr, nvr, value, FMI2RealType, status);
+	}
+	return status;
 }
 
 fmi2Status FMI2GetInteger(FMI2Instance *instance, const fmi2ValueReference vr[], size_t nvr, fmi2Integer value[]) {
