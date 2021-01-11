@@ -15,10 +15,6 @@
 #include "FMI2.h"
 
 // callback functions
-static void cb_logMessage(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
-	printf("%s\n", message);
-}
-
 static void* cb_allocateMemory(size_t nobj, size_t size) {
 	return calloc(nobj, size);
 }
@@ -204,7 +200,7 @@ fmi2Status FMI2SetDebugLogging(FMI2Instance *instance, fmi2Boolean loggingOn, si
 
 /* Creation and destruction of FMU instances and setting debug status */
 FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier, fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID, 
-	fmi2Boolean visible, fmi2Boolean loggingOn, FMI2LogFunctionCallTYPE *logFunctionCall) {
+	fmi2Boolean visible, fmi2Boolean loggingOn, fmi2CallbackLogger logMessage, FMI2LogFunctionCallTYPE *logFunctionCall) {
 
 	FMI2Instance* instance = (FMI2Instance*)calloc(1, sizeof(FMI2Instance));
 
@@ -330,7 +326,7 @@ FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier,
 	LOAD_SYMBOL(GetStringStatus)
 
 	const fmi2CallbackFunctions functions = {
-		cb_logMessage, cb_allocateMemory, cb_freeMemory, NULL, instance
+		logMessage, cb_allocateMemory, cb_freeMemory, NULL, instance
 	};
 
 	char fmuResourceLocation[INTERNET_MAX_URL_LENGTH];

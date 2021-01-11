@@ -29,7 +29,8 @@ int main(int argc, char *argv[]) {
 	fmi2Status status = fmi2OK;
 
 	FMI2Instance *instance = FMI2Instantiate("E:\\Development\\FMIKit-Simulink\\examples\\BouncingBall", 
-		"BouncingBall", "bouncingBall", fmi2CoSimulation, "{8c4e810f-3df3-4a00-8276-176fa3c9f003}", fmi2False, fmi2False, cb_logFunctionCall);
+		"BouncingBall", "bouncingBall", fmi2CoSimulation, "{8c4e810f-3df3-4a00-8276-176fa3c9f003}", 
+		fmi2False, fmi2False, cb_logMessage, cb_logFunctionCall);
 
 	const char *categories[2] = {"a", "b"};
 
