@@ -194,6 +194,8 @@ typedef struct {
 
 	fmi2Type interfaceType;
 
+	fmi2EventInfo eventInfo;
+
 } FMI2Instance;
 
 /***************************************************

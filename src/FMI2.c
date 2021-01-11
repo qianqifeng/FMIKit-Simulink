@@ -206,7 +206,16 @@ FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier,
 
 	FMI2Instance* instance = (FMI2Instance*)calloc(1, sizeof(FMI2Instance));
 
+	instance->eventInfo.newDiscreteStatesNeeded = fmi2False;
+	instance->eventInfo.terminateSimulation = fmi2False;
+	instance->eventInfo.nominalsOfContinuousStatesChanged = fmi2False;
+	instance->eventInfo.valuesOfContinuousStatesChanged = fmi2False;
+	instance->eventInfo.nextEventTimeDefined = fmi2False;
+	instance->eventInfo.nextEventTime = 0.0;
+
 	instance->logFunctionCall = logFunctionCall;
+
+	instance->state = FMI2StartAndEndState;
 
 	instance->bufsize1 = INITIAL_MESSAGE_BUFFER_SIZE;
 	instance->bufsize2 = INITIAL_MESSAGE_BUFFER_SIZE;
@@ -293,34 +302,39 @@ FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier,
 	LOAD_SYMBOL(DeSerializeFMUstate)
 	LOAD_SYMBOL(GetDirectionalDerivative)
 
-	/***************************************************
-	Model Exchange
-	****************************************************/
+	if (fmuType == fmi2ModelExchange) {
 
-	LOAD_SYMBOL(EnterEventMode)
-	LOAD_SYMBOL(NewDiscreteStates)
-	LOAD_SYMBOL(EnterContinuousTimeMode)
-	LOAD_SYMBOL(CompletedIntegratorStep)
-	LOAD_SYMBOL(SetTime)
-	LOAD_SYMBOL(SetContinuousStates)
-	LOAD_SYMBOL(GetDerivatives)
-	LOAD_SYMBOL(GetEventIndicators)
-	LOAD_SYMBOL(GetContinuousStates)
-	LOAD_SYMBOL(GetNominalsOfContinuousStates)
+		/***************************************************
+		Model Exchange
+		****************************************************/
 
-	/***************************************************
-	Co-Simulation
-	****************************************************/
+		LOAD_SYMBOL(EnterEventMode)
+		LOAD_SYMBOL(NewDiscreteStates)
+		LOAD_SYMBOL(EnterContinuousTimeMode)
+		LOAD_SYMBOL(CompletedIntegratorStep)
+		LOAD_SYMBOL(SetTime)
+		LOAD_SYMBOL(SetContinuousStates)
+		LOAD_SYMBOL(GetDerivatives)
+		LOAD_SYMBOL(GetEventIndicators)
+		LOAD_SYMBOL(GetContinuousStates)
+		LOAD_SYMBOL(GetNominalsOfContinuousStates)
 
-	LOAD_SYMBOL(SetRealInputDerivatives)
-	LOAD_SYMBOL(GetRealOutputDerivatives)
-	LOAD_SYMBOL(DoStep)
-	LOAD_SYMBOL(CancelStep)
-	LOAD_SYMBOL(GetStatus)
-	LOAD_SYMBOL(GetRealStatus)
-	LOAD_SYMBOL(GetIntegerStatus)
-	LOAD_SYMBOL(GetBooleanStatus)
-	LOAD_SYMBOL(GetStringStatus)
+	} else {
+
+		/***************************************************
+		Co-Simulation
+		****************************************************/
+
+		LOAD_SYMBOL(SetRealInputDerivatives)
+		LOAD_SYMBOL(GetRealOutputDerivatives)
+		LOAD_SYMBOL(DoStep)
+		LOAD_SYMBOL(CancelStep)
+		LOAD_SYMBOL(GetStatus)
+		LOAD_SYMBOL(GetRealStatus)
+		LOAD_SYMBOL(GetIntegerStatus)
+		LOAD_SYMBOL(GetBooleanStatus)
+		LOAD_SYMBOL(GetStringStatus)
+	}
 
 	const fmi2CallbackFunctions functions = {
 		logMessage, cb_allocateMemory, cb_freeMemory, NULL, instance
@@ -347,6 +361,8 @@ FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier,
 	}
 
 	if (!instance->component) goto fail;
+
+	instance->state = FMI2InstantiatedState;
 
 	return instance;
 
@@ -391,14 +407,17 @@ fmi2Status FMI2SetupExperiment(FMI2Instance *instance,
 }
 
 fmi2Status FMI2EnterInitializationMode(FMI2Instance *instance) {
+	instance->state = FMI2InitializationModeState;
 	CALL(fmi2EnterInitializationMode)
 }
 
 fmi2Status FMI2ExitInitializationMode(FMI2Instance *instance) {
+	instance->state = instance->interfaceType == fmi2ModelExchange ? FMI2EventModeState : FMI2StepCompleteState;
 	CALL(fmi2ExitInitializationMode)
 }
 
 fmi2Status FMI2Terminate(FMI2Instance *instance) {
+	instance->state = FMI2TerminatedState;
 	CALL(fmi2Terminate)
 }
 
@@ -480,6 +499,7 @@ Model Exchange
 
 /* Enter and exit the different modes */
 fmi2Status FMI2EnterEventMode(FMI2Instance *instance) {
+	instance->state = FMI2EventModeState;
 	CALL(fmi2EnterEventMode)
 }
 
@@ -488,6 +508,7 @@ fmi2Status FMI2NewDiscreteStates(FMI2Instance *instance, fmi2EventInfo* fmi2even
 }
 
 fmi2Status FMI2EnterContinuousTimeMode(FMI2Instance *instance) {
+	instance->state = FMI2ContinuousTimeModeState;
 	CALL(fmi2EnterContinuousTimeMode)
 }
 
@@ -500,7 +521,7 @@ fmi2Status FMI2CompletedIntegratorStep(FMI2Instance *instance,
 
 /* Providing independent variables and re-initialization of caching */
 fmi2Status FMI2SetTime(FMI2Instance *instance, fmi2Real time) {
-	CALL_ARGS(fmi2SetTime, ", time=%g", time)
+	CALL_ARGS(fmi2SetTime, "time=%g", time)
 }
 
 fmi2Status FMI2SetContinuousStates(FMI2Instance *instance, const fmi2Real x[], size_t nx) {

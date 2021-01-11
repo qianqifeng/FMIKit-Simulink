@@ -321,6 +321,10 @@ static void cb_logFunctionCall(fmi2Status status, const char *instanceName, cons
 	ssPrintf("\n");
 }
 
+
+#define CHECK_STATUS(s) if (s > fmi2Warning) { ssSetErrorStatus(S, "The FMU encountered an error."); return; }
+
+
 /* log mdl*() and fmi*() calls */
 static void logDebug(SimStruct *S, const char* message, ...) {
 
@@ -337,6 +341,15 @@ static void logDebug(SimStruct *S, const char* message, ...) {
 
         logCall(S, buf);
     }
+}
+
+static void setErrorStatus(SimStruct *S, const char *message, ...) {
+	va_list args;
+	va_start(args, message);
+	static char msg[1024];
+	vsnprintf(msg, 1024, message, args);
+	ssSetErrorStatus(S, msg);
+	va_end(args);
 }
 
 static void setInput(SimStruct *S, bool direct) {
@@ -367,13 +380,13 @@ static void setInput(SimStruct *S, bool direct) {
 			// set the input
 			switch (type) {
 			case FMI_REAL:
-				FMI2SetReal(instance, &vr, 1, &((const real_T *)y)[j]);
+				CHECK_STATUS(FMI2SetReal(instance, &vr, 1, &((const real_T *)y)[j]))
 				break;
 			case FMI_INTEGER:
-				FMI2SetInteger(instance, &vr, 1, &((const int32_T *)y)[j]);
+				CHECK_STATUS(FMI2SetInteger(instance, &vr, 1, &((const int32_T *)y)[j]))
 				break;
 			case FMI_BOOLEAN:
-				FMI2SetBoolean(instance, &vr, 1, &((const boolean_T *)y)[j]);
+				CHECK_STATUS(FMI2SetBoolean(instance, &vr, 1, &((const boolean_T *)y)[j]))
 				break;
 			default:
 				break;
@@ -382,7 +395,6 @@ static void setInput(SimStruct *S, bool direct) {
 			iu++;
 		}
 	}
-
 }
 
 static void setOutput(SimStruct *S) {
@@ -405,13 +417,13 @@ static void setOutput(SimStruct *S) {
 
 			switch (type) {
 			case FMI_REAL:
-				FMI2GetReal(instance, &vr, 1, &((real_T *)y)[j]);
+				CHECK_STATUS(FMI2GetReal(instance, &vr, 1, &((real_T *)y)[j]))
 				break;
 			case FMI_INTEGER:
-				FMI2GetInteger(instance, &vr, 1, &((int32_T *)y)[j]);
+				CHECK_STATUS(FMI2GetInteger(instance, &vr, 1, &((int32_T *)y)[j]))
 				break;
 			case FMI_BOOLEAN:
-				FMI2GetBoolean(instance, &vr, 1, &((boolean_T *)y)[j]);
+				CHECK_STATUS(FMI2GetBoolean(instance, &vr, 1, &((boolean_T *)y)[j]))
 				break;
 			default:
 				break;
@@ -504,103 +516,97 @@ static void setStartValues(SimStruct *S) {
 
 static void update(SimStruct *S) {
 
-//	auto fmu = component<FMU>(S);
-//	auto model = component<Model>(S);
-//
-//	if (model) {
-//
-//		double time = fmu->getTime();
-//		bool upcomingTimeEvent;
-//		double nextEventTime;
-//
-//		auto model1 = component<FMU1Model>(S);
-//		auto model2 = component<FMU2Model>(S);
-//
-//		if (model1) {
-//			upcomingTimeEvent = model1->upcomingTimeEvent();
-//		} else {
-//			upcomingTimeEvent = model2->nextEventTimeDefined();
-//		}
-//
-//		nextEventTime = model->nextEventTime();
-//
-//		// Work around for the event handling in Dymola FMUs:
-//		bool timeEvent = upcomingTimeEvent && time >= nextEventTime;
-//
-//		if (timeEvent/* && logLevel(S) <= DEBUG*/) {
-//			logDebug(S, "Time event at t=%.16g", time);
-//			//ssPrintf("Time event at t=%.16g\n", time);
-//		}
-//
-//		bool stepEvent = model->completedIntegratorStep();
-//
-//		if (stepEvent/* && logLevel(S) <= DEBUG*/) {
-//			logDebug(S, "Step event at t=%.16g\n", time);
-//			//ssPrintf("Step event at t=%.16g\n", time);
-//		}
-//
-//		bool stateEvent = false;
-//
-//		if (nz(S) > 0) {
-//			real_T *prez = ssGetRWork(S);
-//			real_T *z = prez + nz(S);
-//
-//			model->getEventIndicators(z, nz(S));
-//
-//			// check for state events
-//			for (int i = 0; i < nz(S); i++) {
-//
-//				bool rising  = (prez[i] < 0 && z[i] >= 0) || (prez[i] == 0 && z[i] > 0);
-//				bool falling = (prez[i] > 0 && z[i] <= 0) || (prez[i] == 0 && z[i] < 0);
-//
-//				if (rising || falling) {
-//					logDebug(S, "State event %s z[%d] at t=%.16g\n", rising ? "-\\+" : "+/-", i, fmu->getTime());
-//					stateEvent = true;
-//					// TODO: break?
-//				}
-//			}
-//
-//			// remember the current event indicators
-//			for (int i = 0; i < nz(S); i++) prez[i] = z[i];
-//		}
-//
-//		if (timeEvent || stepEvent || stateEvent) {
-//
-//			if (model1) {
-//				model1->eventUpdate();
-//			} else {
-//				model2->enterEventMode();
-//
-//				do {
-//					model2->newDiscreteStates();
-//				} while (model2->newDiscreteStatesNeeded() && !model2->terminateSimulation());
-//
-//				model2->enterContinuousTimeMode();
-//			}
-//
-//			if (nx(S) > 0) {
-//				auto x = ssGetContStates(S);
-//				model->getContinuousStates(x, nx(S));
-//			}
-//
-//			if (nz(S) > 0) {
-//				auto prez = ssGetRWork(S);
-//				model->getEventIndicators(prez, nz(S));
-//			}
-//
-//			ssSetSolverNeedsReset(S);
-//		}
-//	}
+	if (isCS(S)) {
+		return;  // nothing to do
+	}
 
-}
+	FMI2Instance *instance = (FMI2Instance *)ssGetPWork(S)[0];
 
-static void setErrorStatus(SimStruct *S, const char *message, ...) {
-	va_list args;
-	va_start(args, message);
-	static char msg[1024];
-	vsnprintf(msg, 1024, message, args);
-	ssSetErrorStatus(S, msg);
-	va_end(args);
+	double time = instance->time;
+	bool upcomingTimeEvent;
+	double nextEventTime;
+
+	if (isFMI1(S)) {
+		//upcomingTimeEvent = model1->upcomingTimeEvent();
+	} else {
+		upcomingTimeEvent = instance->eventInfo.nextEventTimeDefined;
+	}
+
+	nextEventTime = instance->eventInfo.nextEventTime;
+
+	// Work around for the event handling in Dymola FMUs:
+	bool timeEvent = upcomingTimeEvent && time >= nextEventTime;
+
+	if (timeEvent/* && logLevel(S) <= DEBUG*/) {
+		logDebug(S, "Time event at t=%.16g", time);
+		//ssPrintf("Time event at t=%.16g\n", time);
+	}
+
+	fmi2Boolean stepEvent;
+	fmi2Boolean terminateSimulation;
+
+	CHECK_STATUS(FMI2CompletedIntegratorStep(instance, fmi2True, &stepEvent, &terminateSimulation))
+
+	if (stepEvent) {
+		logDebug(S, "Step event at t=%.16g\n", time);
+	}
+
+	bool stateEvent = false;
+
+	if (nz(S) > 0) {
+
+		real_T *prez = ssGetRWork(S);
+		real_T *z = prez + nz(S);
+
+		CHECK_STATUS(FMI2GetEventIndicators(instance, z, nz(S)))
+
+		// check for state events
+		for (int i = 0; i < nz(S); i++) {
+
+			bool rising  = (prez[i] < 0 && z[i] >= 0) || (prez[i] == 0 && z[i] > 0);
+			bool falling = (prez[i] > 0 && z[i] <= 0) || (prez[i] == 0 && z[i] < 0);
+
+			if (rising || falling) {
+				logDebug(S, "State event %s z[%d] at t=%.16g\n", rising ? "-\\+" : "+/-", i, instance->time);
+				stateEvent = true;
+				// TODO: break?
+			}
+		}
+
+		// remember the current event indicators
+		for (int i = 0; i < nz(S); i++) prez[i] = z[i];
+	}
+
+	if (timeEvent || stepEvent || stateEvent) {
+
+		if (isFMI1(S)) {
+			//model1->eventUpdate();
+		} else {
+			CHECK_STATUS(FMI2EnterEventMode(instance))
+
+			do {
+				CHECK_STATUS(FMI2NewDiscreteStates(instance, &instance->eventInfo))
+				if (instance->eventInfo.terminateSimulation) {
+					setErrorStatus(S, "The FMU requested to terminate the simulation.");
+					return;
+				}
+			} while (instance->eventInfo.newDiscreteStatesNeeded);
+
+			CHECK_STATUS(FMI2EnterContinuousTimeMode(instance))
+		}
+
+		if (nx(S) > 0) {
+			const real_T *x = ssGetContStates(S);
+			CHECK_STATUS(FMI2GetContinuousStates(instance, x, nx(S)))
+		}
+
+		if (nz(S) > 0) {
+			const real_T *prez = ssGetRWork(S);
+			CHECK_STATUS(FMI2GetEventIndicators(instance, prez, nz(S)))
+		}
+
+		ssSetSolverNeedsReset(S);
+	}
 }
 
 #define MDL_CHECK_PARAMETERS
@@ -714,8 +720,6 @@ static void mdlInitializeSampleTimes(SimStruct *S) {
 }
 
 
-#define CHECK_STATUS(s) if (s > fmi2Warning) { ssSetErrorStatus(S, "The FMU encountered an error."); return; }
-
 #define MDL_START
 #if defined(MDL_START)
 static void mdlStart(SimStruct *S) {
@@ -795,30 +799,25 @@ static void mdlStart(SimStruct *S) {
 
 		fmu = FMI2Instantiate(unzipdir, modelIdentifier, instanceName, isCS(S) ? fmi2CoSimulation : fmi2ModelExchange, guid, fmi2False, loggingOn, cb_logMessage, logFMICalls(S) ? cb_logFunctionCall : NULL);
 
-		//mxFree((void *)modelIdentifier);
-		//mxFree((void *)guid);
+		mxFree((void *)modelIdentifier);
+		mxFree((void *)guid);
 
 		if (!fmu) {
 			ssSetErrorStatus(S, "Failed to instantiate FMU.");
 			return;
 		}
 
-		// TODO: check fmu != NULL
+		p[0] = fmu;
 
-        //fmu->m_userData = S;
-        //fmu->setLogLevel(logLevel(S));
-		//if (logFMICalls(S)) fmu->m_fmiCallLogger = logFMICall;
+		setStartValues(S);
 
-		//fmu->instantiate(loggingOn);
-		//setStartValues(S, fmu);
+		if (ssGetErrorStatus(S)) return;
 
 		time_T stopTime = ssGetTFinal(S);  // can be -1
 		CHECK_STATUS(FMI2SetupExperiment(fmu, toleranceDefined, relativeTolerance(S), time, stopTime > time, stopTime))
 
 		CHECK_STATUS(FMI2EnterInitializationMode(fmu))
 		CHECK_STATUS(FMI2ExitInitializationMode(fmu))
-
-		p[0] = fmu;
 	}
 
 }
@@ -867,26 +866,37 @@ static void mdlOutputs(SimStruct *S, int_T tid) {
 
 		real_T *x = ssGetContStates(S);
 
-		//if (model2 && model2->getState() == EventModeState) {
+		if (instance->state == FMI2EventModeState) {
 
-		//	setInput(S, true);
+			setInput(S, true);
 
-		//	do {
-		//		model2->newDiscreteStates();
-		//	} while (model2->newDiscreteStatesNeeded() && !model2->terminateSimulation());
+			if (ssGetErrorStatus(S)) return;
 
-		//	model2->enterContinuousTimeMode();
-		//}
+			do {
+				CHECK_STATUS(FMI2NewDiscreteStates(instance, &instance->eventInfo))
+				if (instance->eventInfo.terminateSimulation) {
+					setErrorStatus(S, "The FMU requested to terminate the simulation.");
+					return;
+				}
+			} while (instance->eventInfo.newDiscreteStatesNeeded);
 
-		//if (model2 && model2->getState() != ContinuousTimeModeState) model2->enterContinuousTimeMode();
+			CHECK_STATUS(FMI2EnterContinuousTimeMode(instance))
+		}
 
-		FMI2SetTime(instance, ssGetT(S));
-		FMI2SetContinuousStates(instance, x, nx(S));
+		if (instance->state != FMI2ContinuousTimeModeState) {
+			CHECK_STATUS(FMI2EnterContinuousTimeMode(instance))
+		}
+
+		CHECK_STATUS(FMI2SetTime(instance, ssGetT(S)))
+		CHECK_STATUS(FMI2SetContinuousStates(instance, x, nx(S)))
 
 		setInput(S, true);
 
+		if (ssGetErrorStatus(S)) return;
+
 		if (ssIsMajorTimeStep(S)) {
 			update(S);
+			if (ssGetErrorStatus(S)) return;
 		}
 
 	} else {
@@ -922,6 +932,8 @@ static void mdlZeroCrossings(SimStruct *S) {
 
 		setInput(S, true);
 
+		if (ssGetErrorStatus(S)) return;
+
 		real_T *z = ssGetNonsampledZCs(S);
 
 		void **p = ssGetPWork(S);
@@ -951,6 +963,8 @@ static void mdlDerivatives(SimStruct *S) {
 		FMI2Instance *instance = (FMI2Instance *)p[0];
 
 		setInput(S, true);
+
+		if (ssGetErrorStatus(S)) return;
 
 		real_T *x = ssGetContStates(S);
 		real_T *dx = ssGetdX(S);
