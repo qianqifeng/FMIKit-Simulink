@@ -14,6 +14,8 @@
 
 #include "FMI2.h"
 
+#define INITIAL_MESSAGE_BUFFER_SIZE 1024
+
 // callback functions
 static void* cb_allocateMemory(size_t nobj, size_t size) {
 	return calloc(nobj, size);
@@ -204,15 +206,10 @@ FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier,
 
 	FMI2Instance* instance = (FMI2Instance*)calloc(1, sizeof(FMI2Instance));
 
-	if (!instance) {
-		// TODO: log error
-		return NULL;
-	}
-
 	instance->logFunctionCall = logFunctionCall;
 
-	instance->bufsize1 = 4;
-	instance->bufsize2 = 4;
+	instance->bufsize1 = INITIAL_MESSAGE_BUFFER_SIZE;
+	instance->bufsize2 = INITIAL_MESSAGE_BUFFER_SIZE;
 
 	instance->buf1 = (char*)calloc(instance->bufsize1, sizeof(char));
 	instance->buf2 = (char*)calloc(instance->bufsize1, sizeof(char));
