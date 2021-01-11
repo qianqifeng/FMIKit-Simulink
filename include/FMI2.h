@@ -68,7 +68,6 @@ static const char * exceptionCodeToString(DWORD exceptionCode) {
 }
 #endif
 
-
 typedef enum {
 
 	FMI2StartAndEndState = 1 << 0,
@@ -176,6 +175,8 @@ typedef struct {
 #endif
 
 	FMI2LogFunctionCallTYPE *logFunctionCall;
+
+	fmi2Real time;
 
 	char *buf1;
 	char *buf2;

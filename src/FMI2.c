@@ -358,7 +358,23 @@ fail:
 }
 
 void FMI2FreeInstance(FMI2Instance *instance) {
+	
 	instance->fmi2FreeInstance(instance->component);
+	
+	if (instance->logFunctionCall) {
+		instance->logFunctionCall(fmi2OK, instance->name, "fmi2FreeInstance(component=0x%p)", instance->component);
+	}
+
+# ifdef _WIN32
+	FreeLibrary(instance->libraryHandle);
+# else
+	dlclose(instance->libraryHandle);
+# endif
+	
+	free(instance->name);
+	free(instance->buf1);
+	free(instance->buf2);
+	free(instance);
 }
 
 /* Enter and exit initialization mode, terminate and reset */
@@ -369,6 +385,8 @@ fmi2Status FMI2SetupExperiment(FMI2Instance *instance,
 	fmi2Boolean stopTimeDefined,
 	fmi2Real stopTime) {
 
+	instance->time = startTime;
+	
 	CALL_ARGS(fmi2SetupExperiment, "toleranceDefined=%d, tolerance=%g, startTime=%g, stopTimeDefined=%d, stopTime=%g", toleranceDefined, tolerance, startTime, stopTimeDefined, stopTime);
 }
 
@@ -554,6 +572,9 @@ fmi2Status FMI2DoStep(FMI2Instance *instance,
 	fmi2Real      currentCommunicationPoint,
 	fmi2Real      communicationStepSize,
 	fmi2Boolean   noSetFMUStatePriorToCurrentPoint) {
+
+	instance->time = currentCommunicationPoint + communicationStepSize;
+	
 	CALL_ARGS(fmi2DoStep, "currentCommunicationPoint=%g, communicationStepSize=%g, noSetFMUStatePriorToCurrentPoint=%d",
 		currentCommunicationPoint, communicationStepSize, noSetFMUStatePriorToCurrentPoint)
 }

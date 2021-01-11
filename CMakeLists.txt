@@ -33,21 +33,15 @@ else ()
 endif ()
 
 add_library(sfun_fmurun SHARED
-  include/fmi1.h
   include/fmi2Functions.h
   include/fmi2FunctionTypes.h
   include/fmi2TypesPlatform.h
-  include/FMU.h
-  include/FMU1.h
-  include/FMU2.h
-  sfun_fmurun.cpp
-  src/FMU.cpp
-  src/FMU1.cpp
-  src/FMU2.cpp
+  include/FMI2.h
+  sfun_fmurun.c
+  src/FMI2.c
 )
 
 SET_TARGET_PROPERTIES(sfun_fmurun PROPERTIES PREFIX "")
-
 
 if (WIN32)
   target_compile_definitions(sfun_fmurun PUBLIC
