@@ -3,6 +3,7 @@
 #include "Shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
 #define strdup _strdup
+#define INTERNET_MAX_URL_LENGTH 2083 // from wininet.h
 #else
 #include <stdarg.h>
 #include <dlfcn.h>
@@ -202,7 +203,8 @@ fmi2Status FMI2SetDebugLogging(FMI2Instance *instance, fmi2Boolean loggingOn, si
 }
 
 /* Creation and destruction of FMU instances and setting debug status */
-FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier, fmi2String instanceName, fmi2Type fmuType, fmi2String guid, fmi2Boolean visible, fmi2Boolean loggingOn) {
+FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier, fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID, 
+	fmi2Boolean visible, fmi2Boolean loggingOn, FMI2LogFunctionCallTYPE *logFunctionCall) {
 
 	FMI2Instance* instance = (FMI2Instance*)calloc(1, sizeof(FMI2Instance));
 
@@ -210,6 +212,8 @@ FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier,
 		// TODO: log error
 		return NULL;
 	}
+
+	instance->logFunctionCall = logFunctionCall;
 
 	instance->bufsize1 = 4;
 	instance->bufsize2 = 4;
@@ -221,15 +225,35 @@ FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier,
 
 # ifdef _WIN32
 	char libraryPath[MAX_PATH];
+	WCHAR dllDirectory[MAX_PATH];
 
 	strncpy(libraryPath, unzipdir, MAX_PATH);
 
 	PathAppend(libraryPath, "binaries");
+#ifdef _WIN64
 	PathAppend(libraryPath, "win64");
+#else
+	PathAppend(libraryPath, "win32");
+#endif
+
+	// convert path to unicode
+	mbstowcs(dllDirectory, libraryPath, MAX_PATH);
+
 	PathAppend(libraryPath, modelIdentifier);
 	strncat(libraryPath, ".dll", MAX_PATH);
 
+	// add the binaries directory temporarily to the DLL path to allow discovery of dependencies
+	DLL_DIRECTORY_COOKIE dllDirectoryCookie = AddDllDirectory(dllDirectory);
+
+	// TODO: log getLastSystemError()
+
 	instance->libraryHandle = LoadLibraryEx(libraryPath, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+
+	// remove the binaries directory from the DLL path
+	if (dllDirectoryCookie) {
+		RemoveDllDirectory(dllDirectoryCookie);
+	}
+
 # else
 	instance->libraryHandle = dlopen(libraryPath, RTLD_LAZY);
 # endif
@@ -309,16 +333,25 @@ FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier,
 		cb_logMessage, cb_allocateMemory, cb_freeMemory, NULL, instance
 	};
 
-	_try{
-		instance->component = instance->fmi2Instantiate(instanceName, fmuType, guid, "", &functions, visible, loggingOn);
-	}
-		__except (EXCEPTION_EXECUTE_HANDLER) {
-		// TODO: log exception
-		// #define ASSERT_NO_ERROR(F, M) __try { assertNoError(F, M); } __except (EXCEPTION_EXECUTE_HANDLER) { error("%s. The FMU crashed (exception code: %s).", M, exceptionCodeToString(GetExceptionCode())); }
-		goto fail;
-	}
+	char fmuResourceLocation[INTERNET_MAX_URL_LENGTH];
 
-	// TODO: log call
+#ifdef _WIN32
+	DWORD fmuLocationLength = INTERNET_MAX_URL_LENGTH;
+	if (UrlCreateFromPath(unzipdir, fmuResourceLocation, &fmuLocationLength, 0) != S_OK) goto fail;
+#else
+	strcpy(fmuResourceLocation, "file://");
+	strcat(fmuResourceLocation, unzipdir);
+#endif
+
+	strcat(fmuResourceLocation, "/resources");
+
+	instance->component = instance->fmi2Instantiate(instanceName, fmuType, fmuGUID, fmuResourceLocation, &functions, visible, loggingOn);
+
+	if (instance->logFunctionCall) {
+		instance->logFunctionCall(instance->component ? fmi2OK : fmi2Error, instance->name, 
+			"fmi2Instantiate(instanceName=\"%s\", fmuType=%d, fmuGUID=\"%s\", fmuResourceLocation=\"%s\", functions=0x%p, visible=%d, loggingOn=%d)",
+			instanceName, fmuType, fmuGUID, fmuResourceLocation, &functions, visible, loggingOn);
+	}
 
 	if (!instance->component) goto fail;
 
