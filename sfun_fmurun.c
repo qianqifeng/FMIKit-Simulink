@@ -134,13 +134,13 @@ static const char* getStringParam(SimStruct *S, int index) {
 static bool isFMI1(SimStruct *S) {
 	const mxArray *pa = ssGetSFcnParam(S, fmiVersionParam);
 	const mxChar* data = (const mxChar*)mxGetData(pa);
-	return wcsncmp(data, L"1.0", 3) == 0;
+	return mxGetN(pa) == 3 && wcsncmp(data, L"1.0", 3) == 0;
 }
 
 static bool isFMI2(SimStruct *S) {
 	const mxArray *pa = ssGetSFcnParam(S, fmiVersionParam);
 	const mxChar* data = (const mxChar*)mxGetData(pa);
-	return wcsncmp(data, L"2.0", 3) == 0;
+	return mxGetN(pa) == 3 && wcsncmp(data, L"2.0", 3) == 0;
 }
 
 static bool isME(SimStruct *S) { 
