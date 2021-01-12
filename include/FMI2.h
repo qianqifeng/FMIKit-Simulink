@@ -1,3 +1,10 @@
+#ifndef FMI2_H
+#define FMI2_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 #include "fmi2Functions.h"
 
@@ -337,3 +344,9 @@ fmi2Status FMI2GetIntegerStatus(FMI2Instance *instance, const fmi2StatusKind s, 
 fmi2Status FMI2GetBooleanStatus(FMI2Instance *instance, const fmi2StatusKind s, fmi2Boolean* value);
 
 fmi2Status FMI2GetStringStatus(FMI2Instance *instance, const fmi2StatusKind s, fmi2String*  value);
+
+#ifdef __cplusplus
+}  /* end of extern "C" { */
+#endif
+
+#endif // FMI2_H
