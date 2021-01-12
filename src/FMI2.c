@@ -175,7 +175,6 @@ Common Functions
 
 /* Inquire version numbers of header files and setting logging status */
 const char* FMI2GetTypesPlatform(FMI2Instance *instance) {
-	if (!instance) return NULL;
 	if (instance->logFunctionCall) {
 			instance->logFunctionCall(fmi2OK, instance->name, "fmi2GetTypesPlatform()");
 	}
@@ -183,7 +182,6 @@ const char* FMI2GetTypesPlatform(FMI2Instance *instance) {
 }
 
 const char* FMI2GetVersion(FMI2Instance *instance) {
-	if (!instance) return NULL;
 	if (instance->logFunctionCall) {
 		instance->logFunctionCall(fmi2OK, instance->name, "fmi2GetVersion()");
 	}
@@ -387,7 +385,7 @@ void FMI2FreeInstance(FMI2Instance *instance) {
 	dlclose(instance->libraryHandle);
 # endif
 	
-	free(instance->name);
+	free((void *)instance->name);
 	free(instance->buf1);
 	free(instance->buf2);
 	free(instance);
@@ -565,7 +563,7 @@ fmi2Status FMI2GetNominalsOfContinuousStates(FMI2Instance *instance, fmi2Real x_
 	fmi2Status status = instance->fmi2GetNominalsOfContinuousStates(instance->component, x_nominal, nx);
 	if (instance->logFunctionCall) {
 		valueToString(instance, nx, x_nominal, FMI2RealType);
-		instance->logFunctionCall(status, instance->name, "fmi2GetNominalsOfContinuousStates(component=0x%p, x=%s, nx=%zu)", instance->component, instance->buf2, nx);
+		instance->logFunctionCall(status, instance->name, "fmi2GetNominalsOfContinuousStates(component=0x%p, x_nominal=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
 }
@@ -579,7 +577,7 @@ fmi2Status FMI2SetRealInputDerivatives(FMI2Instance *instance,
 	const fmi2ValueReference vr[], size_t nvr,
 	const fmi2Integer order[],
 	const fmi2Real value[]) {
-	return instance->fmi2SetRealInputDerivatives(instance->component, vr, nvr, order, value);
+	CALL_ARGS(fmi2SetRealInputDerivatives, "vr=0x%p, nvr=%zu, order=0x%p, value=0x%p", vr, nvr, order, value);
 }
 
 fmi2Status FMI2GetRealOutputDerivatives(FMI2Instance *instance,

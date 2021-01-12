@@ -33,11 +33,14 @@ else ()
 endif ()
 
 add_library(sfun_fmurun SHARED
+  include/fmi1Functions.h
   include/fmi2Functions.h
   include/fmi2FunctionTypes.h
   include/fmi2TypesPlatform.h
+  include/FMI1.h
   include/FMI2.h
   sfun_fmurun.c
+  src/FMI1.c
   src/FMI2.c
 )
 
