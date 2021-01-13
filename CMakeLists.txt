@@ -37,6 +37,7 @@ add_library(sfun_fmurun SHARED
   include/fmi2Functions.h
   include/fmi2FunctionTypes.h
   include/fmi2TypesPlatform.h
+  include/FMI.h
   include/FMI1.h
   include/FMI2.h
   sfun_fmurun.c

@@ -25,6 +25,11 @@ static void cb_freeMemory(void* obj) {
 	free(obj);
 }
 
+static void cb_logMessage(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
+	FMI2Instance *instance = componentEnvironment;
+	instance->logMessage(instanceName, status, category, message);
+}
+
 #define LOAD_SYMBOL(f) \
 	instance->fmi2 ## f = (fmi2 ## f ## TYPE*)GetProcAddress(instance->libraryHandle, "fmi2" #f); \
 	if (!instance->fmi2 ## f) goto fail;
@@ -169,6 +174,53 @@ static const char* valueToString(FMI2Instance *instance, size_t nvr, const void 
 	} \
 	return status;
 
+
+/***************************************************
+Utility Functions
+****************************************************/
+
+FMI2Instance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMI2LogMessageTYPE *logMessage, FMI2LogFunctionCallTYPE *logFunctionCall) {
+
+	FMI2Instance* instance = (FMI2Instance*)calloc(1, sizeof(FMI2Instance));
+
+	instance->logMessage = logMessage;
+	instance->logFunctionCall = logFunctionCall;
+
+	instance->bufsize1 = INITIAL_MESSAGE_BUFFER_SIZE;
+	instance->bufsize2 = INITIAL_MESSAGE_BUFFER_SIZE;
+
+	instance->buf1 = (char *)calloc(instance->bufsize1, sizeof(char));
+	instance->buf2 = (char *)calloc(instance->bufsize1, sizeof(char));
+
+	instance->name = strdup(instanceName);
+
+# ifdef _WIN32
+	WCHAR dllDirectory[MAX_PATH];
+
+	// convert path to unicode
+	mbstowcs(dllDirectory, libraryPath, MAX_PATH);
+
+	// add the binaries directory temporarily to the DLL path to allow discovery of dependencies
+	DLL_DIRECTORY_COOKIE dllDirectoryCookie = AddDllDirectory(dllDirectory);
+
+	// TODO: log getLastSystemError()
+
+	instance->libraryHandle = LoadLibraryEx(libraryPath, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+
+	// remove the binaries directory from the DLL path
+	if (dllDirectoryCookie) {
+		RemoveDllDirectory(dllDirectoryCookie);
+	}
+
+	// TODO: log error
+
+# else
+	instance->libraryHandle = dlopen(libraryPath, RTLD_LAZY);
+# endif
+
+	return instance;
+}
+
 /***************************************************
 Common Functions
 ****************************************************/
@@ -199,10 +251,8 @@ fmi2Status FMI2SetDebugLogging(FMI2Instance *instance, fmi2Boolean loggingOn, si
 }
 
 /* Creation and destruction of FMU instances and setting debug status */
-FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier, fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID, 
-	fmi2Boolean visible, fmi2Boolean loggingOn, fmi2CallbackLogger logMessage, FMI2LogFunctionCallTYPE *logFunctionCall) {
-
-	FMI2Instance* instance = (FMI2Instance*)calloc(1, sizeof(FMI2Instance));
+fmi2Status FMI2Instantiate(FMI2Instance *instance, const char *fmuResourceLocation, fmi2Type fmuType, fmi2String fmuGUID,
+	fmi2Boolean visible, fmi2Boolean loggingOn) {
 
 	instance->eventInfo.newDiscreteStatesNeeded = fmi2False;
 	instance->eventInfo.terminateSimulation = fmi2False;
@@ -211,61 +261,7 @@ FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier,
 	instance->eventInfo.nextEventTimeDefined = fmi2False;
 	instance->eventInfo.nextEventTime = 0.0;
 
-	instance->logFunctionCall = logFunctionCall;
-
 	instance->state = FMI2StartAndEndState;
-
-	instance->bufsize1 = INITIAL_MESSAGE_BUFFER_SIZE;
-	instance->bufsize2 = INITIAL_MESSAGE_BUFFER_SIZE;
-
-	instance->buf1 = (char*)calloc(instance->bufsize1, sizeof(char));
-	instance->buf2 = (char*)calloc(instance->bufsize1, sizeof(char));
-
-	instance->name = strdup(instanceName);
-
-# ifdef _WIN32
-	char libraryPath[MAX_PATH];
-	WCHAR dllDirectory[MAX_PATH];
-
-	strncpy(libraryPath, unzipdir, MAX_PATH);
-
-	PathAppend(libraryPath, "binaries");
-#ifdef _WIN64
-	PathAppend(libraryPath, "win64");
-#else
-	PathAppend(libraryPath, "win32");
-#endif
-
-	// convert path to unicode
-	mbstowcs(dllDirectory, libraryPath, MAX_PATH);
-
-	PathAppend(libraryPath, modelIdentifier);
-	strncat(libraryPath, ".dll", MAX_PATH);
-
-	// add the binaries directory temporarily to the DLL path to allow discovery of dependencies
-	DLL_DIRECTORY_COOKIE dllDirectoryCookie = AddDllDirectory(dllDirectory);
-
-	// TODO: log getLastSystemError()
-
-	instance->libraryHandle = LoadLibraryEx(libraryPath, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-
-	// remove the binaries directory from the DLL path
-	if (dllDirectoryCookie) {
-		RemoveDllDirectory(dllDirectoryCookie);
-	}
-
-# else
-	instance->libraryHandle = dlopen(libraryPath, RTLD_LAZY);
-# endif
-
-# ifdef _WIN32
-# else
-	auto *fp = dlsym(m_libraryHandle, functionName);
-# endif
-
-	if (!instance->libraryHandle) goto fail;
-
-	// load symbols
 
 	/***************************************************
 	Common Functions
@@ -335,40 +331,40 @@ FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier,
 	}
 
 	const fmi2CallbackFunctions functions = {
-		logMessage, cb_allocateMemory, cb_freeMemory, NULL, instance
+		cb_logMessage, cb_allocateMemory, cb_freeMemory, NULL, instance
 	};
 
-	char fmuResourceLocation[INTERNET_MAX_URL_LENGTH];
+//	char fmuResourceLocation[INTERNET_MAX_URL_LENGTH];
+//
+//#ifdef _WIN32
+//	DWORD fmuLocationLength = INTERNET_MAX_URL_LENGTH;
+//	if (UrlCreateFromPath(unzipdir, fmuResourceLocation, &fmuLocationLength, 0) != S_OK) goto fail;
+//#else
+//	strcpy(fmuResourceLocation, "file://");
+//	strcat(fmuResourceLocation, unzipdir);
+//#endif
+//
+//	strcat(fmuResourceLocation, "/resources");
 
-#ifdef _WIN32
-	DWORD fmuLocationLength = INTERNET_MAX_URL_LENGTH;
-	if (UrlCreateFromPath(unzipdir, fmuResourceLocation, &fmuLocationLength, 0) != S_OK) goto fail;
-#else
-	strcpy(fmuResourceLocation, "file://");
-	strcat(fmuResourceLocation, unzipdir);
-#endif
-
-	strcat(fmuResourceLocation, "/resources");
-
-	instance->component = instance->fmi2Instantiate(instanceName, fmuType, fmuGUID, fmuResourceLocation, &functions, visible, loggingOn);
+	instance->component = instance->fmi2Instantiate(instance->name, fmuType, fmuGUID, fmuResourceLocation, &functions, visible, loggingOn);
 
 	if (instance->logFunctionCall) {
 		instance->logFunctionCall(instance->component ? fmi2OK : fmi2Error, instance->name, 
 			"fmi2Instantiate(instanceName=\"%s\", fmuType=%d, fmuGUID=\"%s\", fmuResourceLocation=\"%s\", functions=0x%p, visible=%d, loggingOn=%d)",
-			instanceName, fmuType, fmuGUID, fmuResourceLocation, &functions, visible, loggingOn);
+			instance->name, fmuType, fmuGUID, fmuResourceLocation, &functions, visible, loggingOn);
 	}
 
 	if (!instance->component) goto fail;
 
 	instance->state = FMI2InstantiatedState;
 
-	return instance;
+	return fmi2OK;
 
 fail:
-	if (instance->name) free((void *)instance->name);
-	if (instance->libraryHandle) FreeLibrary(instance->libraryHandle);
-	free(instance);
-	return NULL;
+	//if (instance->name) free((void *)instance->name);
+	//if (instance->libraryHandle) FreeLibrary(instance->libraryHandle);
+	//free(instance);
+	return fmi2Error;
 }
 
 void FMI2FreeInstance(FMI2Instance *instance) {

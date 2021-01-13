@@ -181,6 +181,7 @@ typedef struct {
 	void *libraryHandle;
 #endif
 
+	FMI2LogMessageTYPE      *logMessage;
 	FMI2LogFunctionCallTYPE *logFunctionCall;
 
 	fmi2Real time;
@@ -205,6 +206,13 @@ typedef struct {
 
 } FMI2Instance;
 
+
+/***************************************************
+Utility Functions
+****************************************************/
+
+FMI2Instance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMI2LogMessageTYPE *logMessage, FMI2LogFunctionCallTYPE *logFunctionCall);
+
 /***************************************************
 Common Functions
 ****************************************************/
@@ -216,8 +224,8 @@ const char* FMI2GetVersion(FMI2Instance *instance);
 
 fmi2Status FMI2SetDebugLogging(FMI2Instance *instance, fmi2Boolean loggingOn, size_t nCategories, const fmi2String categories[]);
 
-FMI2Instance* FMI2Instantiate(const char *unzipdir, const char *modelIdentifier, fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID,
-	fmi2Boolean visible, fmi2Boolean loggingOn, fmi2CallbackLogger logMessage, FMI2LogFunctionCallTYPE *logFunctionCall);
+fmi2Status FMI2Instantiate(FMI2Instance *instance, const char *fmuResourceLocation, fmi2Type fmuType, fmi2String fmuGUID,
+	fmi2Boolean visible, fmi2Boolean loggingOn);
 
 void FMI2FreeInstance(FMI2Instance *instance);
 

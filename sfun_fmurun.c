@@ -11,12 +11,12 @@
 #include "simstruc.h"
 
 
-//#ifdef _WIN32
-//#include "shlwapi.h"
-//#include <wininet.h>
-//#pragma comment(lib, "shlwapi.lib")
-//#endif
-//
+#ifdef _WIN32
+#include "shlwapi.h"
+#include <wininet.h>
+#pragma comment(lib, "shlwapi.lib")
+#endif
+
 //#include <stdio.h>
 //#include <stdarg.h>
 //#include <string>
@@ -288,6 +288,11 @@ static void logCall(SimStruct *S, const char* message) {
     }
 }
 
+static void cb_logMessage(fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message) {
+	ssPrintf(message);
+	ssPrintf("\n");
+}
+
 //static void logFMUMessage(FMU *instance, LogLevel level, const char* category, const char* message) {
 //
 //    if (instance && instance->m_userData) {
@@ -304,10 +309,10 @@ static void logCall(SimStruct *S, const char* message) {
 //	}
 //}
 
-static void cb_logMessage(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
-	ssPrintf(message);
-	ssPrintf("\n");
-}
+//static void cb_logMessage(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
+//	ssPrintf(message);
+//	ssPrintf("\n");
+//}
 
 static void cb_logFunctionCall(fmi2Status status, const char *instanceName, const char *message, ...) {
 	char s[MAX_MESSAGE_SIZE];
@@ -596,12 +601,12 @@ static void update(SimStruct *S) {
 		}
 
 		if (nx(S) > 0) {
-			const real_T *x = ssGetContStates(S);
+			real_T *x = ssGetContStates(S);
 			CHECK_STATUS(FMI2GetContinuousStates(instance, x, nx(S)))
 		}
 
 		if (nz(S) > 0) {
-			const real_T *prez = ssGetRWork(S);
+			real_T *prez = ssGetRWork(S);
 			CHECK_STATUS(FMI2GetEventIndicators(instance, prez, nz(S)))
 		}
 
@@ -744,8 +749,8 @@ static void mdlStart(SimStruct *S) {
 
 	//FMU::m_messageLogger = logFMUMessage;
 
-//	char libraryFile[1000];
-//	getLibraryPath(S, libraryFile);
+	//char libraryFile[1000];
+	//getLibraryPath(S, libraryFile);
 //
 //#ifdef _WIN32
 //	if (!PathFileExists(libraryFile)) {
@@ -760,11 +765,39 @@ static void mdlStart(SimStruct *S) {
 
     bool loggingOn = debugLogging(S);
 
+	const char *modelIdentifier = getStringParam(S, modelIdentifierParam);
+	const char *fmuResourceLocation = "";
+
 #ifdef GRTFMI
 	auto unzipdir = FMU_RESOURCES_DIR + string("/") + modelIdentifier(S);
 #else
 	const char *unzipdir = getStringParam(S, unzipDirectoryParam);
 #endif
+
+#ifdef _WIN32
+	char libraryPath[MAX_PATH];
+	WCHAR dllDirectory[MAX_PATH];
+
+	strncpy(libraryPath, unzipdir, MAX_PATH);
+
+	PathAppend(libraryPath, "binaries");
+#ifdef _WIN64
+	PathAppend(libraryPath, "win64");
+#else
+	PathAppend(libraryPath, "win32");
+#endif
+
+	PathAppend(libraryPath, modelIdentifier);
+	strncat(libraryPath, ".dll", MAX_PATH);
+#endif
+
+	mxFree((void *)modelIdentifier);
+
+	FMI2Instance *fmu = FMICreateInstance(instanceName, libraryPath, cb_logMessage, logFMICalls(S) ? cb_logFunctionCall : NULL);
+
+	p[0] = fmu;
+
+	const char *guid = getStringParam(S, guidParam);
 
 	if (isFMI1(S)) {
 
@@ -792,22 +825,12 @@ static void mdlStart(SimStruct *S) {
 
 	} else {
 
-		FMI2Instance *fmu = NULL;
-
-		const char *modelIdentifier = getStringParam(S, modelIdentifierParam);
-		const char *guid = getStringParam(S, guidParam);
-
-		fmu = FMI2Instantiate(unzipdir, modelIdentifier, instanceName, isCS(S) ? fmi2CoSimulation : fmi2ModelExchange, guid, fmi2False, loggingOn, cb_logMessage, logFMICalls(S) ? cb_logFunctionCall : NULL);
-
-		mxFree((void *)modelIdentifier);
-		mxFree((void *)guid);
+		CHECK_STATUS(FMI2Instantiate(fmu, fmuResourceLocation, isCS(S) ? fmi2CoSimulation : fmi2ModelExchange, guid, fmi2False, loggingOn))
 
 		if (!fmu) {
 			ssSetErrorStatus(S, "Failed to instantiate FMU.");
 			return;
 		}
-
-		p[0] = fmu;
 
 		setStartValues(S);
 
@@ -819,6 +842,8 @@ static void mdlStart(SimStruct *S) {
 		CHECK_STATUS(FMI2EnterInitializationMode(fmu))
 		CHECK_STATUS(FMI2ExitInitializationMode(fmu))
 	}
+
+	mxFree((void *)guid);
 
 }
 #endif /* MDL_START */
