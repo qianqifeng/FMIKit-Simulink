@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stdbool.h>
+#include "fmi1Functions.h"
 #include "fmi2Functions.h"
 
 #ifdef _WIN32
@@ -98,6 +99,11 @@ typedef enum {
 } FMI2State;
 
 typedef enum {
+	FMIVersion1,
+	FMIVersion2
+} FMIVersion;
+
+typedef enum {
 	FMI2RealType,
 	FMI2IntegerType,
 	FMI2BooleanType,
@@ -112,6 +118,59 @@ typedef void FMI2LogMessageTYPE(fmi2String instanceName,
 	fmi2String message);
 
 typedef struct {
+
+	/***************************************************
+	 Common Functions for FMI 1.0
+	****************************************************/
+	fmi1SetRealTYPE         *fmi1SetReal;
+	fmi1SetIntegerTYPE      *fmi1SetInteger;
+	fmi1SetBooleanTYPE      *fmi1SetBoolean;
+	fmi1SetStringTYPE       *fmi1SetString;
+	fmi1GetRealTYPE         *fmi1GetReal;
+	fmi1GetIntegerTYPE      *fmi1GetInteger;
+	fmi1GetBooleanTYPE      *fmi1GetBoolean;
+	fmi1GetStringTYPE       *fmi1GetString;
+	fmi1SetDebugLoggingTYPE *fmi1SetDebugLogging;
+
+	/***************************************************
+	 FMI 1.0 for Model Exchange Functions
+	****************************************************/
+	fmi1EventInfo eventInfo1;
+
+	fmi1GetModelTypesPlatformTYPE      *fmi1GetModelTypesPlatform;
+	fmi1GetVersionTYPE                 *fmi1GetVersion;
+	fmi1InstantiateModelTYPE           *fmi1InstantiateModel;
+	fmi1FreeModelInstanceTYPE          *fmi1FreeModelInstance;
+	fmi1SetTimeTYPE                    *fmi1SetTime;
+	fmi1SetContinuousStatesTYPE        *fmi1SetContinuousStates;
+	fmi1CompletedIntegratorStepTYPE    *fmi1CompletedIntegratorStep;
+	fmi1InitializeTYPE                 *fmi1Initialize;
+	fmi1GetDerivativesTYPE             *fmi1GetDerivatives;
+	fmi1GetEventIndicatorsTYPE         *fmi1GetEventIndicators;
+	fmi1EventUpdateTYPE                *fmi1EventUpdate;
+	fmi1GetContinuousStatesTYPE        *fmi1GetContinuousStates;
+	fmi1GetNominalContinuousStatesTYPE *fmi1GetNominalContinuousStates;
+	fmi1GetStateValueReferencesTYPE    *fmi1GetStateValueReferences;
+	fmi1TerminateTYPE                  *fmi1Terminate;
+
+	/***************************************************
+	 FMI 1.0 for Co-Simulation Functions
+	****************************************************/
+	fmi1GetTypesPlatformTYPE         *fmi1GetTypesPlatform;
+	fmi1InstantiateSlaveTYPE         *fmi1InstantiateSlave;
+	fmi1InitializeSlaveTYPE          *fmi1InitializeSlave;
+	fmi1TerminateSlaveTYPE           *fmi1TerminateSlave;
+	fmi1ResetSlaveTYPE               *fmi1ResetSlave;
+	fmi1FreeSlaveInstanceTYPE        *fmi1FreeSlaveInstance;
+	fmi1SetRealInputDerivativesTYPE  *fmi1SetRealInputDerivatives;
+	fmi1GetRealOutputDerivativesTYPE *fmi1GetRealOutputDerivatives;
+	fmi1CancelStepTYPE               *fmi1CancelStep;
+	fmi1DoStepTYPE                   *fmi1DoStep;
+	fmi1GetStatusTYPE                *fmi1GetStatus;
+	fmi1GetRealStatusTYPE            *fmi1GetRealStatus;
+	fmi1GetIntegerStatusTYPE         *fmi1GetIntegerStatus;
+	fmi1GetBooleanStatusTYPE         *fmi1GetBooleanStatus;
+	fmi1GetStringStatusTYPE          *fmi1GetStringStatus;
 
 	/***************************************************
 	Common Functions for FMI 2.0
@@ -180,6 +239,8 @@ typedef struct {
 #else
 	void *libraryHandle;
 #endif
+
+	FMIVersion fmiVersion;
 
 	FMI2LogMessageTYPE      *logMessage;
 	FMI2LogFunctionCallTYPE *logFunctionCall;

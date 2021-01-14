@@ -7,7 +7,9 @@
 #define S_FUNCTION_NAME  sfun_fmurun
 #define S_FUNCTION_LEVEL 2
 
+#include "FMI1.h"
 #include "FMI2.h"
+
 #include "simstruc.h"
 
 
@@ -383,19 +385,42 @@ static void setInput(SimStruct *S, bool direct) {
 			const ValueReference vr = valueReference(S, inputPortVariableVRsParam, iu);
 
 			// set the input
-			switch (type) {
-			case FMI_REAL:
-				CHECK_STATUS(FMI2SetReal(instance, &vr, 1, &((const real_T *)y)[j]))
-				break;
-			case FMI_INTEGER:
-				CHECK_STATUS(FMI2SetInteger(instance, &vr, 1, &((const int32_T *)y)[j]))
-				break;
-			case FMI_BOOLEAN:
-				CHECK_STATUS(FMI2SetBoolean(instance, &vr, 1, &((const boolean_T *)y)[j]))
-				break;
-			default:
-				break;
+			if (isFMI1(S)) {
+
+				switch (type) {
+				case FMI_REAL:
+					CHECK_STATUS(FMI1SetReal(instance, &vr, 1, &((const real_T *)y)[j]))
+						break;
+				case FMI_INTEGER:
+					CHECK_STATUS(FMI1SetInteger(instance, &vr, 1, &((const int32_T *)y)[j]))
+						break;
+				case FMI_BOOLEAN:
+					CHECK_STATUS(FMI1SetBoolean(instance, &vr, 1, &((const boolean_T *)y)[j]))
+					break;
+				default:
+					break;
+				}
+
+			} else {
+				
+				switch (type) {
+				case FMI_REAL:
+					CHECK_STATUS(FMI2SetReal(instance, &vr, 1, &((const real_T *)y)[j]))
+					break;
+				case FMI_INTEGER:
+					CHECK_STATUS(FMI2SetInteger(instance, &vr, 1, &((const int32_T *)y)[j]))
+					break;
+				case FMI_BOOLEAN: {
+					const fmi2Boolean booleanValue = ((const boolean_T *)y)[j];
+					CHECK_STATUS(FMI2SetBoolean(instance, &vr, 1, &booleanValue))
+					break;
+				}
+				default:
+					break;
+				}
 			}
+
+
 
 			iu++;
 		}
@@ -420,24 +445,44 @@ static void setOutput(SimStruct *S) {
 
 			auto vr = valueReference(S, outputPortVariableVRsParam, iy);
 
-			switch (type) {
-			case FMI_REAL:
-				CHECK_STATUS(FMI2GetReal(instance, &vr, 1, &((real_T *)y)[j]))
-				break;
-			case FMI_INTEGER:
-				CHECK_STATUS(FMI2GetInteger(instance, &vr, 1, &((int32_T *)y)[j]))
-				break;
-			case FMI_BOOLEAN:
-				CHECK_STATUS(FMI2GetBoolean(instance, &vr, 1, &((boolean_T *)y)[j]))
-				break;
-			default:
-				break;
+			if (isFMI1(S)) {
+
+				switch (type) {
+				case FMI_REAL:
+					CHECK_STATUS(FMI1GetReal(instance, &vr, 1, &((real_T *)y)[j]))
+						break;
+				case FMI_INTEGER:
+					CHECK_STATUS(FMI1GetInteger(instance, &vr, 1, &((int32_T *)y)[j]))
+						break;
+				case FMI_BOOLEAN:
+					CHECK_STATUS(FMI2GetBoolean(instance, &vr, 1, &((boolean_T *)y)[j]))
+						break;
+				default:
+					break;
+				}
+
+			} else {
+
+				switch (type) {
+				case FMI_REAL:
+					CHECK_STATUS(FMI2GetReal(instance, &vr, 1, &((real_T *)y)[j]))
+						break;
+				case FMI_INTEGER:
+					CHECK_STATUS(FMI2GetInteger(instance, &vr, 1, &((int32_T *)y)[j]))
+						break;
+				case FMI_BOOLEAN:
+					// TODO: convert from fmi2Boolean
+					CHECK_STATUS(FMI2GetBoolean(instance, &vr, 1, &((boolean_T *)y)[j]))
+						break;
+				default:
+					break;
+				}
+
 			}
 
 			iy++;
 		}
 	}
-
 }
 
 //static void getLibraryPath(SimStruct *S, char *path) {
@@ -476,14 +521,31 @@ static void setStartValues(SimStruct *S) {
 		ValueReference vr = valueReference(S, scalarStartVRsParam, i);
 		Type type = variableType(S, scalarStartTypesParam, i);
 		real_T realValue = scalarValue(S, scalarStartValuesParam, i);
-		int intValue = realValue;
+				
+		if (isFMI1(S)) {
 
-        switch (type) {
-		case FMI_REAL:    FMI2SetReal(instance, &vr, 1, &realValue); break;
-		case FMI_INTEGER: FMI2SetInteger(instance, &vr, 1, &intValue); break;
-		case FMI_BOOLEAN: FMI2SetBoolean(instance, &vr, 1, &intValue); break;
-		default: break;
-        }
+			fmi1Integer intValue = realValue;
+			fmi1Boolean boolValue = realValue;
+
+			switch (type) {
+			case FMI_REAL:    FMI1SetReal    (instance, &vr, 1, &realValue); break;
+			case FMI_INTEGER: FMI1SetInteger (instance, &vr, 1, &intValue);  break;
+			case FMI_BOOLEAN: FMI1SetBoolean (instance, &vr, 1, &boolValue); break;
+			default: break;
+			}
+
+		} else {
+
+			fmi2Integer intValue = realValue;
+			fmi2Boolean boolValue = realValue;
+
+			switch (type) {
+			case FMI_REAL:    FMI2SetReal    (instance, &vr, 1, &realValue); break;
+			case FMI_INTEGER: FMI2SetInteger (instance, &vr, 1, &intValue);  break;
+			case FMI_BOOLEAN: FMI2SetBoolean (instance, &vr, 1, &boolValue); break;
+			default: break;
+			}
+		}
     }
 
 	// string start values
@@ -510,9 +572,13 @@ static void setStartValues(SimStruct *S) {
 			value[j] = '\0';
 		}
 
-		auto vr = valueReference(S, stringStartVRsParam, i);
+		ValueReference vr = valueReference(S, stringStartVRsParam, i);
 
-		FMI2SetString(instance, vr, 1, &value);
+		if (isFMI1(S)) {
+			FMI2SetString(instance, vr, 1, &value);
+		} else {
+			FMI1SetString(instance, vr, 1, &value);
+		}
 	}
 
 	free(buffer);
@@ -532,12 +598,12 @@ static void update(SimStruct *S) {
 	double nextEventTime;
 
 	if (isFMI1(S)) {
-		//upcomingTimeEvent = model1->upcomingTimeEvent();
+		upcomingTimeEvent = instance->eventInfo1.upcomingTimeEvent;
+		nextEventTime = instance->eventInfo1.nextEventTime;
 	} else {
 		upcomingTimeEvent = instance->eventInfo.nextEventTimeDefined;
+		nextEventTime = instance->eventInfo.nextEventTime;
 	}
-
-	nextEventTime = instance->eventInfo.nextEventTime;
 
 	// Work around for the event handling in Dymola FMUs:
 	bool timeEvent = upcomingTimeEvent && time >= nextEventTime;
@@ -547,10 +613,22 @@ static void update(SimStruct *S) {
 		//ssPrintf("Time event at t=%.16g\n", time);
 	}
 
-	fmi2Boolean stepEvent;
-	fmi2Boolean terminateSimulation;
+	bool stepEvent;
 
-	CHECK_STATUS(FMI2CompletedIntegratorStep(instance, fmi2True, &stepEvent, &terminateSimulation))
+	if (isFMI1(S)) {
+		fmi1Boolean enterEventMode = fmi1False;
+		CHECK_STATUS(FMI1CompletedIntegratorStep(instance, fmi1True, &enterEventMode))
+		stepEvent = enterEventMode;
+	} else {
+		fmi2Boolean enterEventMode = fmi2False;
+		fmi2Boolean terminateSimulation = fmi2False;
+		CHECK_STATUS(FMI2CompletedIntegratorStep(instance, fmi2True, &enterEventMode, &terminateSimulation))
+		if (terminateSimulation) {
+			setErrorStatus(S, "The FMU requested to terminate the simulation.");
+			return;
+		}
+		stepEvent = enterEventMode;
+	}
 
 	if (stepEvent) {
 		logDebug(S, "Step event at t=%.16g\n", time);
@@ -563,7 +641,11 @@ static void update(SimStruct *S) {
 		real_T *prez = ssGetRWork(S);
 		real_T *z = prez + nz(S);
 
-		CHECK_STATUS(FMI2GetEventIndicators(instance, z, nz(S)))
+		if (isFMI1(S)) {
+			CHECK_STATUS(FMI1GetEventIndicators(instance, z, nz(S)))
+		} else {
+			CHECK_STATUS(FMI2GetEventIndicators(instance, z, nz(S)))
+		}
 
 		// check for state events
 		for (int i = 0; i < nz(S); i++) {
@@ -585,8 +667,11 @@ static void update(SimStruct *S) {
 	if (timeEvent || stepEvent || stateEvent) {
 
 		if (isFMI1(S)) {
-			//model1->eventUpdate();
+
+			CHECK_STATUS(FMI1EventUpdate(instance, fmi1False, &instance->eventInfo1));
+		
 		} else {
+
 			CHECK_STATUS(FMI2EnterEventMode(instance))
 
 			do {
@@ -601,13 +686,25 @@ static void update(SimStruct *S) {
 		}
 
 		if (nx(S) > 0) {
+
 			real_T *x = ssGetContStates(S);
-			CHECK_STATUS(FMI2GetContinuousStates(instance, x, nx(S)))
+
+			if (isFMI1(S)) {
+				CHECK_STATUS(FMI1GetContinuousStates(instance, x, nx(S)))
+			} else {
+				CHECK_STATUS(FMI2GetContinuousStates(instance, x, nx(S)))
+			}
 		}
 
 		if (nz(S) > 0) {
+
 			real_T *prez = ssGetRWork(S);
-			CHECK_STATUS(FMI2GetEventIndicators(instance, prez, nz(S)))
+
+			if (isFMI1(S)) {
+				CHECK_STATUS(FMI1GetEventIndicators(instance, prez, nz(S)))
+			} else {
+				CHECK_STATUS(FMI2GetEventIndicators(instance, prez, nz(S)))
+			}
 		}
 
 		ssSetSolverNeedsReset(S);
@@ -742,7 +839,7 @@ static void mdlStart(SimStruct *S) {
     //    p[1] = fopen(logfile.c_str(), "w");
     //}
 
-	logDebug(S, "mdlStart(path=\"%s\")", ssGetPath(S));
+	logDebug(S, "mdlStart()");
 
 	const char_T* instanceName = ssGetPath(S);
 	time_T time = ssGetT(S);
@@ -791,43 +888,36 @@ static void mdlStart(SimStruct *S) {
 	strncat(libraryPath, ".dll", MAX_PATH);
 #endif
 
-	mxFree((void *)modelIdentifier);
+	FMI2Instance *instance = FMICreateInstance(instanceName, libraryPath, cb_logMessage, logFMICalls(S) ? cb_logFunctionCall : NULL);
 
-	FMI2Instance *fmu = FMICreateInstance(instanceName, libraryPath, cb_logMessage, logFMICalls(S) ? cb_logFunctionCall : NULL);
-
-	p[0] = fmu;
+	p[0] = instance;
 
 	const char *guid = getStringParam(S, guidParam);
 
+	time_T stopTime = ssGetTFinal(S);  // can be -1
+
 	if (isFMI1(S)) {
 
-		//if (runAsKind(S) == CO_SIMULATION) {
-		//	auto slave = new FMU1Slave(guid(S), modelIdentifier(S), unzipDirectory(S), instanceName);
-  //          slave->m_userData = S;
-  //          slave->setLogLevel(logLevel(S));
-  //          if (logFMICalls(S)) slave->m_fmiCallLogger = logFMICall;
-  //          slave->instantiateSlave(unzipDirectory(S), 0, loggingOn);
-		//	setStartValues(S, slave);
-		//	slave->initializeSlave(time, true, ssGetTFinal(S));
-		//	p[0] = slave;
-		//} else {
-		//	auto model = new FMU1Model(guid(S), modelIdentifier(S), unzipDirectory(S), instanceName);
-  //          model->m_userData = S;
-  //          model->setLogLevel(logLevel(S));
-  //          if (logFMICalls(S)) model->m_fmiCallLogger = logFMICall;
-  //          model->instantiateModel(loggingOn);
-		//	setStartValues(S, model);
-		//	model->setTime(time);
-		//	model->initialize(toleranceDefined, relativeTolerance(S));
-		//	if (model->terminateSimulation()) ssSetErrorStatus(S, "Model requested termination at init");
-		//	p[0] = model;
-		//}
+		if (isCS(S)) {
+			CHECK_STATUS(FMI1InstantiateSlave(instance, modelIdentifier, guid, fmuResourceLocation, "application/x-fmu-sharedlibrary", 0, fmi1False, fmi1False, loggingOn))
+			setStartValues(S);
+			CHECK_STATUS(FMI1InitializeSlave(instance, time, stopTime > time, stopTime))
+		} else {
+			CHECK_STATUS(FMI1InstantiateModel(instance, modelIdentifier, guid, loggingOn))
+			setStartValues(S);
+			CHECK_STATUS(FMI1SetTime(instance, time))
+			CHECK_STATUS(FMI1Initialize(instance, toleranceDefined, relativeTolerance(S)))
+			if (instance->eventInfo1.terminateSimulation) {
+				setErrorStatus(S, "Model requested termination at init");
+				return;
+			}
+		}
 
 	} else {
 
-		CHECK_STATUS(FMI2Instantiate(fmu, fmuResourceLocation, isCS(S) ? fmi2CoSimulation : fmi2ModelExchange, guid, fmi2False, loggingOn))
+		CHECK_STATUS(FMI2Instantiate(instance, fmuResourceLocation, isCS(S) ? fmi2CoSimulation : fmi2ModelExchange, guid, fmi2False, loggingOn))
 
-		if (!fmu) {
+		if (!instance) {
 			ssSetErrorStatus(S, "Failed to instantiate FMU.");
 			return;
 		}
@@ -836,15 +926,14 @@ static void mdlStart(SimStruct *S) {
 
 		if (ssGetErrorStatus(S)) return;
 
-		time_T stopTime = ssGetTFinal(S);  // can be -1
-		CHECK_STATUS(FMI2SetupExperiment(fmu, toleranceDefined, relativeTolerance(S), time, stopTime > time, stopTime))
+		CHECK_STATUS(FMI2SetupExperiment(instance, toleranceDefined, relativeTolerance(S), time, stopTime > time, stopTime))
 
-		CHECK_STATUS(FMI2EnterInitializationMode(fmu))
-		CHECK_STATUS(FMI2ExitInitializationMode(fmu))
+		CHECK_STATUS(FMI2EnterInitializationMode(instance))
+		CHECK_STATUS(FMI2ExitInitializationMode(instance))
 	}
 
+	mxFree((void *)modelIdentifier);
 	mxFree((void *)guid);
-
 }
 #endif /* MDL_START */
 
@@ -855,25 +944,39 @@ static void mdlInitializeConditions(SimStruct *S) {
 
 	logDebug(S, "mdlInitializeConditions()");
 
-	if (isME(S)) {
+	if (isCS(S)) {
+		return;  // nothing to do
+	}
 
-		void **p = ssGetPWork(S);
 
-		FMI2Instance *instance = (FMI2Instance *)p[0];
+	void **p = ssGetPWork(S);
 
-		// initialize the continuous states
-		real_T *x = ssGetContStates(S);
+	FMI2Instance *instance = (FMI2Instance *)p[0];
 
+	// initialize the continuous states
+	real_T *x = ssGetContStates(S);
+
+	if (isFMI1(S)) {
+		CHECK_STATUS(FMI1GetContinuousStates(instance, x, nx(S)))
+	} else {
 		CHECK_STATUS(FMI2GetContinuousStates(instance, x, nx(S)))
+	}
 
-		// initialize the event indicators
-		if (nz(S) > 0) {
-			real_T *prez = ssGetRWork(S);
-			real_T *z = prez + nz(S);
+	// initialize the event indicators
+	if (nz(S) > 0) {
 
-			FMI2GetEventIndicators(instance, prez, nz(S));
-			FMI2GetEventIndicators(instance, z, nz(S));
+		real_T *prez = ssGetRWork(S);
+		real_T *z = prez + nz(S);
+
+		if (isFMI1(S)) {
+			CHECK_STATUS(FMI1GetEventIndicators(instance, prez, nz(S)))
+			CHECK_STATUS(FMI1GetEventIndicators(instance, z, nz(S)))
 		}
+		else {
+			CHECK_STATUS(FMI2GetEventIndicators(instance, prez, nz(S)))
+			CHECK_STATUS(FMI2GetEventIndicators(instance, z, nz(S)))
+		}
+
 	}
 }
 #endif
@@ -891,30 +994,40 @@ static void mdlOutputs(SimStruct *S, int_T tid) {
 
 		real_T *x = ssGetContStates(S);
 
-		if (instance->state == FMI2EventModeState) {
+		if (isFMI2(S)) {
 
-			setInput(S, true);
+			if (instance->state == FMI2EventModeState) {
 
-			if (ssGetErrorStatus(S)) return;
 
-			do {
-				CHECK_STATUS(FMI2NewDiscreteStates(instance, &instance->eventInfo))
-				if (instance->eventInfo.terminateSimulation) {
-					setErrorStatus(S, "The FMU requested to terminate the simulation.");
-					return;
-				}
-			} while (instance->eventInfo.newDiscreteStatesNeeded);
+				setInput(S, true);
 
-			CHECK_STATUS(FMI2EnterContinuousTimeMode(instance))
+				if (ssGetErrorStatus(S)) return;
+
+				do {
+					CHECK_STATUS(FMI2NewDiscreteStates(instance, &instance->eventInfo))
+					if (instance->eventInfo.terminateSimulation) {
+						setErrorStatus(S, "The FMU requested to terminate the simulation.");
+						return;
+					}
+				} while (instance->eventInfo.newDiscreteStatesNeeded);
+
+				CHECK_STATUS(FMI2EnterContinuousTimeMode(instance))
+			}
+
+			if (instance->state != FMI2ContinuousTimeModeState) {
+				CHECK_STATUS(FMI2EnterContinuousTimeMode(instance))
+			}
+
+			CHECK_STATUS(FMI2SetTime(instance, ssGetT(S)))
+			CHECK_STATUS(FMI2SetContinuousStates(instance, x, nx(S)))
+
+		} else {
+			
+			CHECK_STATUS(FMI1SetTime(instance, ssGetT(S)))
+			CHECK_STATUS(FMI1SetContinuousStates(instance, x, nx(S)))
+		
 		}
-
-		if (instance->state != FMI2ContinuousTimeModeState) {
-			CHECK_STATUS(FMI2EnterContinuousTimeMode(instance))
-		}
-
-		CHECK_STATUS(FMI2SetTime(instance, ssGetT(S)))
-		CHECK_STATUS(FMI2SetContinuousStates(instance, x, nx(S)))
-
+			   		
 		setInput(S, true);
 
 		if (ssGetErrorStatus(S)) return;
@@ -929,7 +1042,11 @@ static void mdlOutputs(SimStruct *S, int_T tid) {
 		time_T h = ssGetT(S) - instance->time;
 
 		if (h > 0) {
-			CHECK_STATUS(FMI2DoStep(instance, ssGetT(S), h, fmi2False))
+			if (isFMI1(S)) {
+				CHECK_STATUS(FMI1DoStep(instance, ssGetT(S), h, fmi1True))
+			} else {
+				CHECK_STATUS(FMI2DoStep(instance, ssGetT(S), h, fmi2False))
+			}
 		}
 	}
 
@@ -966,10 +1083,16 @@ static void mdlZeroCrossings(SimStruct *S) {
 		FMI2Instance *instance = (FMI2Instance *)p[0];
 
 		if (nz(S) > 0) {
-			FMI2GetEventIndicators(instance, z, nz(S));
+			if (isFMI1(S)) {
+				CHECK_STATUS(FMI1GetEventIndicators(instance, z, nz(S)))
+			} else {
+				CHECK_STATUS(FMI2GetEventIndicators(instance, z, nz(S)))
+			}
 		}
 
-		//z[nz(S)] = model->nextEventTime() - ssGetT(S);
+		real_T nextEventTime = instance->eventInfo1.nextEventTime ? isFMI1(S) : instance->eventInfo.nextEventTime;
+
+		z[nz(S)] = nextEventTime - ssGetT(S);
 	}
 }
 #endif
@@ -981,19 +1104,25 @@ static void mdlDerivatives(SimStruct *S) {
 
 	logDebug(S, "mdlDerivatives(time=%.16g, majorTimeStep=%d)", ssGetT(S), ssIsMajorTimeStep(S));
 
-	if (isME(S)) {
+	if (isCS(S)) {
+		return;  // nothing to do
+	}
 		
-		void **p = ssGetPWork(S);
+	void **p = ssGetPWork(S);
 
-		FMI2Instance *instance = (FMI2Instance *)p[0];
+	FMI2Instance *instance = (FMI2Instance *)p[0];
 
-		setInput(S, true);
+	setInput(S, true);
 
-		if (ssGetErrorStatus(S)) return;
+	if (ssGetErrorStatus(S)) return;
 
-		real_T *x = ssGetContStates(S);
-		real_T *dx = ssGetdX(S);
+	real_T *x = ssGetContStates(S);
+	real_T *dx = ssGetdX(S);
 
+	if (isFMI1(S)) {
+		FMI1GetContinuousStates(instance, x, nx(S));
+		FMI1GetDerivatives(instance, dx, nx(S));
+	} else {
 		FMI2GetContinuousStates(instance, x, nx(S));
 		FMI2GetDerivatives(instance, dx, nx(S));
 	}
@@ -1007,9 +1136,23 @@ static void mdlTerminate(SimStruct *S) {
 
 	FMI2Instance *instance = (FMI2Instance *)ssGetPWork(S)[0];
 
-	CHECK_STATUS(FMI2Terminate(instance))
+	if (isFMI1(S)) {
 
-	FMI2FreeInstance(instance);
+		if (isME(S)) {
+			CHECK_STATUS(FMI1Terminate(instance))
+			FMI1FreeModelInstance(instance);
+		} else {
+			CHECK_STATUS(FMI1TerminateSlave(instance))
+			FMI1FreeSlaveInstance(instance);
+		}
+
+	} else {
+		
+		CHECK_STATUS(FMI2Terminate(instance))
+		
+		FMI2FreeInstance(instance);
+	}
+
 }
 
 /*=============================*

@@ -254,6 +254,8 @@ fmi2Status FMI2SetDebugLogging(FMI2Instance *instance, fmi2Boolean loggingOn, si
 fmi2Status FMI2Instantiate(FMI2Instance *instance, const char *fmuResourceLocation, fmi2Type fmuType, fmi2String fmuGUID,
 	fmi2Boolean visible, fmi2Boolean loggingOn) {
 
+	instance->fmiVersion = FMIVersion2;
+
 	instance->eventInfo.newDiscreteStatesNeeded = fmi2False;
 	instance->eventInfo.terminateSimulation = fmi2False;
 	instance->eventInfo.nominalsOfContinuousStatesChanged = fmi2False;
