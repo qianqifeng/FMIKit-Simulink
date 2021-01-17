@@ -73,42 +73,6 @@ typedef enum {
 
 } Parameter;
 
-//typedef enum {
-//	FMI_REAL,
-//	FMI_INTEGER,
-//	FMI_BOOLEAN,
-//	FMI_STRING
-//} Type;
-//
-//typedef unsigned int ValueReference;
-
-//static string getStringParam(SimStruct *S, int index) {
-//
-//	const mxArray *pa = ssGetSFcnParam(S, index);
-//
-//	auto n = mxGetN(pa);
-//	auto m = mxGetM(pa);
-//
-//	// TODO: assert m == 1
-//
-//	if (n < 1) return "";
-//
-//	auto data = static_cast<const mxChar*>(mxGetData(pa));
-//
-//	if (!data) return "";
-//
-//	auto cstr = static_cast<char *>(mxMalloc(n));
-//
-//	// convert real_T to ASCII char
-//	for (int i = 0; i < n; i++) {
-//		// TODO: assert 0 <= data[i] <= 127
-//		cstr[i] = data[i];
-//	}
-//
-//	string cppstr(cstr, n);
-//	mxFree(cstr);
-//	return cppstr;
-//}
 
 static const char* getStringParam(SimStruct *S, int index) {
 
@@ -130,10 +94,6 @@ static const char* getStringParam(SimStruct *S, int index) {
 	return string;
 }
 
-//static const wchar_t* fmiVersion(SimStruct *S) {
-//	return getStringParam(S, fmiVersionParam);
-//}
-
 static bool isFMI1(SimStruct *S) {
 	const mxArray *pa = ssGetSFcnParam(S, fmiVersionParam);
 	const mxChar* data = (const mxChar*)mxGetData(pa);
@@ -153,20 +113,6 @@ static bool isME(SimStruct *S) {
 static bool isCS(SimStruct *S) {
 	return mxGetScalar(ssGetSFcnParam(S, runAsKindParam)) == fmi2CoSimulation;
 }
-
-//static fmikit::Kind runAsKind(SimStruct *S) { return static_cast<fmikit::Kind>(static_cast<int>( mxGetScalar( ssGetSFcnParam(S, runAsKindParam) ) ) ); }
-//
-//static string guid(SimStruct *S) {
-//	return getStringParam(S, guidParam);
-//}
-//
-//static string modelIdentifier(SimStruct *S) {
-//	return getStringParam(S, modelIdentifierParam);
-//}
-//
-//static string unzipDirectory(SimStruct *S) {
-//	return getStringParam(S, unzipDirectoryParam);
-//}
 
 static bool debugLogging(SimStruct *S) {
     return mxGetScalar(ssGetSFcnParam(S, debugLoggingParam));
@@ -266,11 +212,6 @@ static int outputPortWidth(SimStruct *S, int index) {
 
 inline size_t ny(SimStruct *S) { return mxGetNumberOfElements(ssGetSFcnParam(S, outputPortWidthsParam)); }
 
-//template<typename T> T *component(SimStruct *S) {
-//	auto fmu = static_cast<FMU *>(ssGetPWork(S)[0]);
-//	return dynamic_cast<T *>(fmu);
-//}
-
 static void logCall(SimStruct *S, const char* message) {
 
     FILE *logfile = NULL;
@@ -295,27 +236,6 @@ static void cb_logMessage(fmi2String instanceName, fmi2Status status, fmi2String
 	ssPrintf(message);
 	ssPrintf("\n");
 }
-
-//static void logFMUMessage(FMU *instance, LogLevel level, const char* category, const char* message) {
-//
-//    if (instance && instance->m_userData) {
-//        SimStruct *S = static_cast<SimStruct *>(instance->m_userData);
-//        logCall(S, message);
-//    }
-//}
-//
-//static void logFMICall(FMU *instance, const char* message) {
-//
-//	if (instance && instance->m_userData) {
-//		SimStruct *S = static_cast<SimStruct *>(instance->m_userData);
-//		logCall(S, message);
-//	}
-//}
-
-//static void cb_logMessage(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
-//	ssPrintf(message);
-//	ssPrintf("\n");
-//}
 
 static void cb_logFunctionCall(fmi2Status status, const char *instanceName, const char *message, ...) {
 	char s[MAX_MESSAGE_SIZE];
