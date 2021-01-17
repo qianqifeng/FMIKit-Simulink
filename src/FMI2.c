@@ -14,7 +14,6 @@
 
 #include "FMI2.h"
 
-#define INITIAL_MESSAGE_BUFFER_SIZE 1024
 
 // callback functions
 static void* cb_allocateMemory(size_t nobj, size_t size) {
@@ -174,53 +173,6 @@ static const char* valueToString(FMI2Instance *instance, size_t nvr, const void 
 	} \
 	return status;
 
-
-/***************************************************
-Utility Functions
-****************************************************/
-
-FMI2Instance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMI2LogMessageTYPE *logMessage, FMI2LogFunctionCallTYPE *logFunctionCall) {
-
-	FMI2Instance* instance = (FMI2Instance*)calloc(1, sizeof(FMI2Instance));
-
-	instance->logMessage = logMessage;
-	instance->logFunctionCall = logFunctionCall;
-
-	instance->bufsize1 = INITIAL_MESSAGE_BUFFER_SIZE;
-	instance->bufsize2 = INITIAL_MESSAGE_BUFFER_SIZE;
-
-	instance->buf1 = (char *)calloc(instance->bufsize1, sizeof(char));
-	instance->buf2 = (char *)calloc(instance->bufsize1, sizeof(char));
-
-	instance->name = strdup(instanceName);
-
-# ifdef _WIN32
-	WCHAR dllDirectory[MAX_PATH];
-
-	// convert path to unicode
-	mbstowcs(dllDirectory, libraryPath, MAX_PATH);
-
-	// add the binaries directory temporarily to the DLL path to allow discovery of dependencies
-	DLL_DIRECTORY_COOKIE dllDirectoryCookie = AddDllDirectory(dllDirectory);
-
-	// TODO: log getLastSystemError()
-
-	instance->libraryHandle = LoadLibraryEx(libraryPath, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-
-	// remove the binaries directory from the DLL path
-	if (dllDirectoryCookie) {
-		RemoveDllDirectory(dllDirectoryCookie);
-	}
-
-	// TODO: log error
-
-# else
-	instance->libraryHandle = dlopen(libraryPath, RTLD_LAZY);
-# endif
-
-	return instance;
-}
-
 /***************************************************
 Common Functions
 ****************************************************/
@@ -254,7 +206,7 @@ fmi2Status FMI2SetDebugLogging(FMI2Instance *instance, fmi2Boolean loggingOn, si
 fmi2Status FMI2Instantiate(FMI2Instance *instance, const char *fmuResourceLocation, fmi2Type fmuType, fmi2String fmuGUID,
 	fmi2Boolean visible, fmi2Boolean loggingOn) {
 
-	instance->fmiVersion = FMIVersion2;
+	//instance->fmiVersion = FMIVersion2;
 
 	instance->eventInfo.newDiscreteStatesNeeded = fmi2False;
 	instance->eventInfo.terminateSimulation = fmi2False;
@@ -376,17 +328,6 @@ void FMI2FreeInstance(FMI2Instance *instance) {
 	if (instance->logFunctionCall) {
 		instance->logFunctionCall(fmi2OK, instance->name, "fmi2FreeInstance(component=0x%p)", instance->component);
 	}
-
-# ifdef _WIN32
-	FreeLibrary(instance->libraryHandle);
-# else
-	dlclose(instance->libraryHandle);
-# endif
-	
-	free((void *)instance->name);
-	free(instance->buf1);
-	free(instance->buf2);
-	free(instance);
 }
 
 /* Enter and exit initialization mode, terminate and reset */

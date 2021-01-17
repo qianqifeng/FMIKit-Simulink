@@ -7,6 +7,7 @@
 #define S_FUNCTION_NAME  sfun_fmurun
 #define S_FUNCTION_LEVEL 2
 
+#include "FMI.h"
 #include "FMI1.h"
 #include "FMI2.h"
 
@@ -72,14 +73,14 @@ typedef enum {
 
 } Parameter;
 
-typedef enum {
-	FMI_REAL,
-	FMI_INTEGER,
-	FMI_BOOLEAN,
-	FMI_STRING
-} Type;
-
-typedef unsigned int ValueReference;
+//typedef enum {
+//	FMI_REAL,
+//	FMI_INTEGER,
+//	FMI_BOOLEAN,
+//	FMI_STRING
+//} Type;
+//
+//typedef unsigned int ValueReference;
 
 //static string getStringParam(SimStruct *S, int index) {
 //
@@ -225,17 +226,17 @@ inline size_t nu(SimStruct *S) { return mxGetNumberOfElements(ssGetSFcnParam(S, 
 // number of input variables
 inline size_t nuv(SimStruct *S) { return mxGetNumberOfElements(ssGetSFcnParam(S, inputPortVariableVRsParam)); }
 
-inline ValueReference valueReference(SimStruct *S, Parameter parameter, int index) {
+inline FMIValueReference valueReference(SimStruct *S, Parameter parameter, int index) {
 	const mxArray * param = ssGetSFcnParam(S, parameter);
 	real_T realValue = ((real_T *)mxGetData(param))[index];
-	return (ValueReference)realValue;
+	return (FMIValueReference)realValue;
 }
 
-inline Type variableType(SimStruct *S, Parameter parameter, int index) {
+inline FMIVariableType variableType(SimStruct *S, Parameter parameter, int index) {
 	const mxArray * param = ssGetSFcnParam(S, parameter);
 	real_T realValue = ((real_T *)mxGetData(param))[index];
 	int intValue = (int)realValue;
-	return (Type)intValue;
+	return (FMIVariableType)intValue;
 }
 
 inline DTypeId simulinkVariableType(SimStruct *S, Parameter parameter, int index) {
@@ -243,12 +244,12 @@ inline DTypeId simulinkVariableType(SimStruct *S, Parameter parameter, int index
 	const mxArray *param = ssGetSFcnParam(S, parameter);
 	real_T realValue = ((real_T *)mxGetData(param))[index];
 	int intValue = (int)realValue;
-	Type type = (Type)intValue;
+	FMIVariableType type = (FMIVariableType)intValue;
 
 	switch (type) {
-	case FMI_REAL:    return SS_DOUBLE;
-	case FMI_INTEGER: return SS_INT32;
-	case FMI_BOOLEAN: return SS_BOOLEAN;
+	case FMIRealType:    return SS_DOUBLE;
+	case FMIIntegerType: return SS_INT32;
+	case FMIBooleanType: return SS_BOOLEAN;
 	default:      return -1; // error
 	}
 }
@@ -376,25 +377,25 @@ static void setInput(SimStruct *S, bool direct) {
 			continue;
 		}
 
-		Type type = variableType(S, inputPortTypesParam, i);
+		FMIVariableType type = variableType(S, inputPortTypesParam, i);
 
 		const void *y = ssGetInputPortSignal(S, i);
 
 		for (int j = 0; j < w; j++) {
 
-			const ValueReference vr = valueReference(S, inputPortVariableVRsParam, iu);
+			const FMIValueReference vr = valueReference(S, inputPortVariableVRsParam, iu);
 
 			// set the input
 			if (isFMI1(S)) {
 
 				switch (type) {
-				case FMI_REAL:
+				case FMIRealType:
 					CHECK_STATUS(FMI1SetReal(instance, &vr, 1, &((const real_T *)y)[j]))
 						break;
-				case FMI_INTEGER:
+				case FMIIntegerType:
 					CHECK_STATUS(FMI1SetInteger(instance, &vr, 1, &((const int32_T *)y)[j]))
 						break;
-				case FMI_BOOLEAN:
+				case FMIBooleanType:
 					CHECK_STATUS(FMI1SetBoolean(instance, &vr, 1, &((const boolean_T *)y)[j]))
 					break;
 				default:
@@ -404,13 +405,13 @@ static void setInput(SimStruct *S, bool direct) {
 			} else {
 				
 				switch (type) {
-				case FMI_REAL:
+				case FMIRealType:
 					CHECK_STATUS(FMI2SetReal(instance, &vr, 1, &((const real_T *)y)[j]))
 					break;
-				case FMI_INTEGER:
+				case FMIIntegerType:
 					CHECK_STATUS(FMI2SetInteger(instance, &vr, 1, &((const int32_T *)y)[j]))
 					break;
-				case FMI_BOOLEAN: {
+				case FMIBooleanType: {
 					const fmi2Boolean booleanValue = ((const boolean_T *)y)[j];
 					CHECK_STATUS(FMI2SetBoolean(instance, &vr, 1, &booleanValue))
 					break;
@@ -437,7 +438,7 @@ static void setOutput(SimStruct *S) {
 
 	for (int i = 0; i < ny(S); i++) {
 
-		Type type = variableType(S, outputPortTypesParam, i);
+		FMIVariableType type = variableType(S, outputPortTypesParam, i);
 
 		void *y = ssGetOutputPortSignal(S, i);
 
@@ -448,14 +449,14 @@ static void setOutput(SimStruct *S) {
 			if (isFMI1(S)) {
 
 				switch (type) {
-				case FMI_REAL:
+				case FMIRealType:
 					CHECK_STATUS(FMI1GetReal(instance, &vr, 1, &((real_T *)y)[j]))
 						break;
-				case FMI_INTEGER:
+				case FMIIntegerType:
 					CHECK_STATUS(FMI1GetInteger(instance, &vr, 1, &((int32_T *)y)[j]))
 						break;
-				case FMI_BOOLEAN:
-					CHECK_STATUS(FMI2GetBoolean(instance, &vr, 1, &((boolean_T *)y)[j]))
+				case FMIBooleanType:
+					CHECK_STATUS(FMI1GetBoolean(instance, &vr, 1, &((boolean_T *)y)[j]))
 						break;
 				default:
 					break;
@@ -464,16 +465,18 @@ static void setOutput(SimStruct *S) {
 			} else {
 
 				switch (type) {
-				case FMI_REAL:
+				case FMIRealType:
 					CHECK_STATUS(FMI2GetReal(instance, &vr, 1, &((real_T *)y)[j]))
 						break;
-				case FMI_INTEGER:
+				case FMIIntegerType:
 					CHECK_STATUS(FMI2GetInteger(instance, &vr, 1, &((int32_T *)y)[j]))
 						break;
-				case FMI_BOOLEAN:
-					// TODO: convert from fmi2Boolean
-					CHECK_STATUS(FMI2GetBoolean(instance, &vr, 1, &((boolean_T *)y)[j]))
-						break;
+				case FMIBooleanType: {
+					fmi2Boolean booleanValue;
+					CHECK_STATUS(FMI2GetBoolean(instance, &vr, 1, &booleanValue))
+					((boolean_T *)y)[j] = booleanValue;
+					break;
+				}
 				default:
 					break;
 				}
@@ -518,8 +521,8 @@ static void setStartValues(SimStruct *S) {
 
     // scalar start values
 	for (int i = 0; i < nScalarStartValues(S); i++) {
-		ValueReference vr = valueReference(S, scalarStartVRsParam, i);
-		Type type = variableType(S, scalarStartTypesParam, i);
+		FMIValueReference vr = valueReference(S, scalarStartVRsParam, i);
+		FMIVariableType type = variableType(S, scalarStartTypesParam, i);
 		real_T realValue = scalarValue(S, scalarStartValuesParam, i);
 				
 		if (isFMI1(S)) {
@@ -528,9 +531,9 @@ static void setStartValues(SimStruct *S) {
 			fmi1Boolean boolValue = realValue;
 
 			switch (type) {
-			case FMI_REAL:    FMI1SetReal    (instance, &vr, 1, &realValue); break;
-			case FMI_INTEGER: FMI1SetInteger (instance, &vr, 1, &intValue);  break;
-			case FMI_BOOLEAN: FMI1SetBoolean (instance, &vr, 1, &boolValue); break;
+			case FMIRealType:    FMI1SetReal    (instance, &vr, 1, &realValue); break;
+			case FMIIntegerType: FMI1SetInteger (instance, &vr, 1, &intValue);  break;
+			case FMIBooleanType: FMI1SetBoolean (instance, &vr, 1, &boolValue); break;
 			default: break;
 			}
 
@@ -540,9 +543,9 @@ static void setStartValues(SimStruct *S) {
 			fmi2Boolean boolValue = realValue;
 
 			switch (type) {
-			case FMI_REAL:    FMI2SetReal    (instance, &vr, 1, &realValue); break;
-			case FMI_INTEGER: FMI2SetInteger (instance, &vr, 1, &intValue);  break;
-			case FMI_BOOLEAN: FMI2SetBoolean (instance, &vr, 1, &boolValue); break;
+			case FMIRealType:    FMI2SetReal    (instance, &vr, 1, &realValue); break;
+			case FMIIntegerType: FMI2SetInteger (instance, &vr, 1, &intValue);  break;
+			case FMIBooleanType: FMI2SetBoolean (instance, &vr, 1, &boolValue); break;
 			default: break;
 			}
 		}
@@ -572,12 +575,12 @@ static void setStartValues(SimStruct *S) {
 			value[j] = '\0';
 		}
 
-		ValueReference vr = valueReference(S, stringStartVRsParam, i);
+		FMIValueReference vr = valueReference(S, stringStartVRsParam, i);
 
 		if (isFMI1(S)) {
-			FMI2SetString(instance, vr, 1, &value);
+			FMI2SetString(instance, &vr, 1, &value);
 		} else {
-			FMI1SetString(instance, vr, 1, &value);
+			FMI1SetString(instance, &vr, 1, &value);
 		}
 	}
 
@@ -616,9 +619,9 @@ static void update(SimStruct *S) {
 	bool stepEvent;
 
 	if (isFMI1(S)) {
-		fmi1Boolean enterEventMode = fmi1False;
-		CHECK_STATUS(FMI1CompletedIntegratorStep(instance, fmi1True, &enterEventMode))
-		stepEvent = enterEventMode;
+		fmi1Boolean callEventUpdate = fmi1False;
+		CHECK_STATUS(FMI1CompletedIntegratorStep(instance, &callEventUpdate))
+		stepEvent = callEventUpdate;
 	} else {
 		fmi2Boolean enterEventMode = fmi2False;
 		fmi2Boolean terminateSimulation = fmi2False;
@@ -1153,6 +1156,7 @@ static void mdlTerminate(SimStruct *S) {
 		FMI2FreeInstance(instance);
 	}
 
+	FMIFreeInstance(instance);
 }
 
 /*=============================*

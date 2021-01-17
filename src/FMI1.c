@@ -252,8 +252,13 @@ fail:
 	return status;
 }
 
-void          FMI1FreeModelInstance(FMI2Instance *instance) {
-	// TODO
+void FMI1FreeModelInstance(FMI2Instance *instance) {
+
+	instance->fmi1FreeModelInstance(instance->component);
+	
+	if (instance->logFunctionCall) {
+		instance->logFunctionCall(fmi1OK, instance->name, "fmi1FreeModelInstance(component=0x%p)", instance->component);
+	}
 }
 
 fmi1Status    FMI1SetTime(FMI2Instance *instance, fmi1Real time) {
@@ -342,7 +347,7 @@ const char*   FMI1GetTypesPlatform(FMI2Instance *instance) {
 
 fmi1Status FMI1InstantiateSlave(FMI2Instance *instance, fmi1String modelIdentifier, fmi1String fmuGUID, fmi1String fmuLocation, fmi1String  mimeType, fmi1Real timeout, fmi1Boolean visible, fmi1Boolean interactive, fmi1Boolean loggingOn) {
 
-	instance->fmiVersion = FMIVersion1;
+	//instance->fmiVersion = FMIVersion1;
 
 	fmi1Status status = fmi1OK;
 
@@ -430,8 +435,13 @@ fmi1Status    FMI1ResetSlave(FMI2Instance *instance) {
 	CALL(fmi1ResetSlave)
 }
 
-void          FMI1FreeSlaveInstance(FMI2Instance *instance) {
-	// TODO
+void FMI1FreeSlaveInstance(FMI2Instance *instance) {
+
+	instance->fmi1FreeSlaveInstance(instance->component);
+
+	if (instance->logFunctionCall) {
+		instance->logFunctionCall(fmi1OK, instance->name, "fmi1FreeSlaveInstance(component=0x%p)", instance->component);
+	}
 }
 
 fmi1Status    FMI1SetRealInputDerivatives(FMI2Instance *instance, const fmi1ValueReference vr[], size_t nvr, const fmi1Integer order[], const fmi1Real value[]) {

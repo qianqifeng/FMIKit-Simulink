@@ -41,6 +41,7 @@ add_library(sfun_fmurun SHARED
   include/FMI1.h
   include/FMI2.h
   sfun_fmurun.c
+  src/FMI.c
   src/FMI1.c
   src/FMI2.c
 )
