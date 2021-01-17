@@ -277,18 +277,6 @@ fmi2Status FMI2Instantiate(FMI2Instance *instance, const char *fmuResourceLocati
 		cb_logMessage, calloc, free, NULL, instance
 	};
 
-//	char fmuResourceLocation[INTERNET_MAX_URL_LENGTH];
-//
-//#ifdef _WIN32
-//	DWORD fmuLocationLength = INTERNET_MAX_URL_LENGTH;
-//	if (UrlCreateFromPath(unzipdir, fmuResourceLocation, &fmuLocationLength, 0) != S_OK) goto fail;
-//#else
-//	strcpy(fmuResourceLocation, "file://");
-//	strcat(fmuResourceLocation, unzipdir);
-//#endif
-//
-//	strcat(fmuResourceLocation, "/resources");
-
 	instance->component = instance->fmi2Instantiate(instance->name, fmuType, fmuGUID, fmuResourceLocation, &functions, visible, loggingOn);
 
 	if (instance->logFunctionCall) {

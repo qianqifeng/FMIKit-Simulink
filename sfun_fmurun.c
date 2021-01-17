@@ -866,7 +866,6 @@ static void mdlStart(SimStruct *S) {
     bool loggingOn = debugLogging(S);
 
 	const char *modelIdentifier = getStringParam(S, modelIdentifierParam);
-	const char *fmuResourceLocation = "";
 
 #ifdef GRTFMI
 	auto unzipdir = FMU_RESOURCES_DIR + string("/") + modelIdentifier(S);
@@ -896,6 +895,23 @@ static void mdlStart(SimStruct *S) {
 	p[0] = instance;
 
 	const char *guid = getStringParam(S, guidParam);
+
+	char fmuResourceLocation[INTERNET_MAX_URL_LENGTH];
+
+#ifdef _WIN32
+	DWORD fmuLocationLength = INTERNET_MAX_URL_LENGTH;
+	if (UrlCreateFromPath(unzipdir, fmuResourceLocation, &fmuLocationLength, 0) != S_OK) {
+		setErrorStatus(S, "Failed to create fmuResourceLocation.");
+		return;
+	}
+#else
+	strcpy(fmuResourceLocation, "file://");
+	strcat(fmuResourceLocation, unzipdir);
+#endif
+
+	if (isFMI2(S)) {
+		strcat(fmuResourceLocation, "/resources");
+	}
 
 	time_T stopTime = ssGetTFinal(S);  // can be -1
 
