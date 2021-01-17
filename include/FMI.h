@@ -54,14 +54,9 @@ typedef enum {
 
 typedef unsigned int FMIValueReference;
 
-//typedef enum {
-//	FMIVersion1,
-//	FMIVersion2
-//} FMIVersion;
+typedef void FMILogFunctionCall(FMIStatus status, const char *instanceName, const char *message, ...);
 
-typedef void FMI2LogFunctionCallTYPE(FMIStatus status, const char *instanceName, const char *message, ...);
-
-typedef void FMI2LogMessageTYPE(const char * instanceName, FMIStatus status, const char * category,	const char * message);
+typedef void FMILogMessage(const char * instanceName, FMIStatus status, const char * category,	const char * message);
 
 typedef struct {
 
@@ -186,10 +181,8 @@ typedef struct {
 	void *libraryHandle;
 #endif
 
-	//FMIVersion fmiVersion;
-
-	FMI2LogMessageTYPE      *logMessage;
-	FMI2LogFunctionCallTYPE *logFunctionCall;
+	FMILogMessage      *logMessage;
+	FMILogFunctionCall *logFunctionCall;
 
 	fmi2Real time;
 
@@ -199,7 +192,7 @@ typedef struct {
 	size_t bufsize1;
 	size_t bufsize2;
 
-	fmi2Component component;
+	void *component;
 
 	fmi2String name;
 
@@ -215,11 +208,7 @@ typedef struct {
 
 } FMI2Instance;
 
-/***************************************************
-Utility Functions
-****************************************************/
-
-FMI2Instance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMI2LogMessageTYPE *logMessage, FMI2LogFunctionCallTYPE *logFunctionCall);
+FMI2Instance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMILogMessage *logMessage, FMILogFunctionCall *logFunctionCall);
 
 void FMIFreeInstance(FMI2Instance *instance);
 

@@ -14,11 +14,7 @@
 #define INITIAL_MESSAGE_BUFFER_SIZE 1024
 
 
-/***************************************************
-Utility Functions
-****************************************************/
-
-FMI2Instance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMI2LogMessageTYPE *logMessage, FMI2LogFunctionCallTYPE *logFunctionCall) {
+FMI2Instance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMILogMessage *logMessage, FMILogFunctionCall *logFunctionCall) {
 
 	FMI2Instance* instance = (FMI2Instance*)calloc(1, sizeof(FMI2Instance));
 

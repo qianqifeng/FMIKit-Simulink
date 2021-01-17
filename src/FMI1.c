@@ -1,30 +1,9 @@
-//#ifdef _WIN32
-//#include <direct.h>
-//#include "Shlwapi.h"
-//#pragma comment(lib, "shlwapi.lib")
-//#define strdup _strdup
-//#define INTERNET_MAX_URL_LENGTH 2083 // from wininet.h
-//#else
-//#include <stdarg.h>
-//#include <dlfcn.h>
-//#endif
-//
 #include <stdio.h>
 #include <string.h>
 
 #include "FMI1.h"
 #include "FMI2.h"
-//
-//#define INITIAL_MESSAGE_BUFFER_SIZE 1024
 
-// callback functions
-static void *cb_allocateMemory(size_t nobj, size_t size) {
-	return calloc(nobj, size);
-}
-
-static void cb_freeMemory(void* obj) {
-	free(obj);
-}
 
 static void cb_logMessage(fmi1Component c, fmi1String instanceName, fmi1Status status, fmi1String category, fmi1String message, ...) {
 	FMI2Instance *instance = (FMI2Instance *)c;
@@ -233,8 +212,8 @@ fmi1Status FMI1InstantiateModel(FMI2Instance *instance, fmi1String modelIdentifi
 
 	fmi1CallbackFunctions functions = {
 		cb_logMessage,
-		cb_allocateMemory,
-		cb_freeMemory,
+		calloc,
+		free,
 		NULL
 	};
 
@@ -364,25 +343,6 @@ fmi1Status FMI1InstantiateSlave(FMI2Instance *instance, fmi1String modelIdentifi
 	LOAD_SYMBOL(GetString)
 	LOAD_SYMBOL(SetDebugLogging)
 
-	///***************************************************
-	// FMI 1.0 for Model Exchange Functions
-	//****************************************************/
-	//LOAD_SYMBOL(GetModelTypesPlatform)
-	//LOAD_SYMBOL(GetVersion)
-	//LOAD_SYMBOL(InstantiateModel)
-	//LOAD_SYMBOL(FreeModelInstance)
-	//LOAD_SYMBOL(SetTime)
-	//LOAD_SYMBOL(SetContinuousStates)
-	//LOAD_SYMBOL(CompletedIntegratorStep)
-	//LOAD_SYMBOL(Initialize)
-	//LOAD_SYMBOL(GetDerivatives)
-	//LOAD_SYMBOL(GetEventIndicators)
-	//LOAD_SYMBOL(EventUpdate)
-	//LOAD_SYMBOL(GetContinuousStates)
-	//LOAD_SYMBOL(GetNominalContinuousStates)
-	//LOAD_SYMBOL(GetStateValueReferences)
-	//LOAD_SYMBOL(Terminate)
-
 	/***************************************************
 	 FMI 1.0 for Co-Simulation Functions
 	****************************************************/
@@ -404,8 +364,8 @@ fmi1Status FMI1InstantiateSlave(FMI2Instance *instance, fmi1String modelIdentifi
 
 	fmi1CallbackFunctions functions = {
 		cb_logMessage,
-		cb_allocateMemory,
-		cb_freeMemory,
+		calloc,
+		free,
 		NULL
 	};
 

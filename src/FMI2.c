@@ -15,15 +15,6 @@
 #include "FMI2.h"
 
 
-// callback functions
-static void* cb_allocateMemory(size_t nobj, size_t size) {
-	return calloc(nobj, size);
-}
-
-static void cb_freeMemory(void* obj) {
-	free(obj);
-}
-
 static void cb_logMessage(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
 	FMI2Instance *instance = componentEnvironment;
 	instance->logMessage(instanceName, status, category, message);
@@ -206,8 +197,6 @@ fmi2Status FMI2SetDebugLogging(FMI2Instance *instance, fmi2Boolean loggingOn, si
 fmi2Status FMI2Instantiate(FMI2Instance *instance, const char *fmuResourceLocation, fmi2Type fmuType, fmi2String fmuGUID,
 	fmi2Boolean visible, fmi2Boolean loggingOn) {
 
-	//instance->fmiVersion = FMIVersion2;
-
 	instance->eventInfo.newDiscreteStatesNeeded = fmi2False;
 	instance->eventInfo.terminateSimulation = fmi2False;
 	instance->eventInfo.nominalsOfContinuousStatesChanged = fmi2False;
@@ -285,7 +274,7 @@ fmi2Status FMI2Instantiate(FMI2Instance *instance, const char *fmuResourceLocati
 	}
 
 	const fmi2CallbackFunctions functions = {
-		cb_logMessage, cb_allocateMemory, cb_freeMemory, NULL, instance
+		cb_logMessage, calloc, free, NULL, instance
 	};
 
 //	char fmuResourceLocation[INTERNET_MAX_URL_LENGTH];
@@ -315,9 +304,6 @@ fmi2Status FMI2Instantiate(FMI2Instance *instance, const char *fmuResourceLocati
 	return fmi2OK;
 
 fail:
-	//if (instance->name) free((void *)instance->name);
-	//if (instance->libraryHandle) FreeLibrary(instance->libraryHandle);
-	//free(instance);
 	return fmi2Error;
 }
 
