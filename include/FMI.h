@@ -28,6 +28,11 @@ typedef enum {
 } FMIVariableType;
 
 typedef enum {
+	FMIVersion1,
+	FMIVersion2
+} FMIVersion;
+
+typedef enum {
 	FMIModelExchange,
 	FMICoSimulation
 } FMIInterfaceType;
@@ -201,6 +206,8 @@ typedef struct {
 	FMI2State state;
 
 	FMIStatus status;
+
+	FMIVersion fmiVersion;
 
 	FMIInterfaceType interfaceType;
 

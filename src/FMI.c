@@ -108,9 +108,13 @@ const char* FMIValuesToString(FMIInstance *instance, size_t nvr, const void *val
 				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "%g, " : "%g", ((fmi2Real *)value)[i]);
 				break;
 			case FMIIntegerType:
+				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "%d, " : "%d", ((fmi2Integer *)value)[i]);
 			case FMIBooleanType:
-				// TODO: handle fmi1Boolean
-				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "%d, " : "%d", ((int *)value)[i]);
+				if (instance->fmiVersion == FMIVersion1) {
+					pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "%d, " : "%d", ((fmi1Boolean *)value)[i]);
+				} else {
+					pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "%d, " : "%d", ((fmi2Boolean *)value)[i]);
+				}
 				break;
 			case FMIStringType:
 				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "\"%s\", " : "\"%s\"", ((fmi2String *)value)[i]);

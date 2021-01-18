@@ -114,6 +114,8 @@ const char*   FMI1GetVersion(FMIInstance *instance) {
 
 fmi1Status FMI1InstantiateModel(FMIInstance *instance, fmi1String modelIdentifier, fmi1String GUID, fmi1Boolean loggingOn) {
 
+	instance->fmiVersion = FMIVersion1;
+
 	fmi1Status status = fmi1OK;
 	
 	/***************************************************
@@ -264,7 +266,7 @@ const char*   FMI1GetTypesPlatform(FMIInstance *instance) {
 
 fmi1Status FMI1InstantiateSlave(FMIInstance *instance, fmi1String modelIdentifier, fmi1String fmuGUID, fmi1String fmuLocation, fmi1String  mimeType, fmi1Real timeout, fmi1Boolean visible, fmi1Boolean interactive, fmi1Boolean loggingOn) {
 
-	//instance->fmiVersion = FMIVersion1;
+	instance->fmiVersion = FMIVersion1;
 
 	fmi1Status status = fmi1OK;
 
