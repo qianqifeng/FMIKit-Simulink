@@ -20,9 +20,14 @@ static void cb_logMessage2(fmi2ComponentEnvironment componentEnvironment, fmi2St
 	instance->logMessage(instanceName, status, category, message);
 }
 
+#ifdef FMI2_FUNCTION_PREFIX
+#define LOAD_SYMBOL(f) \
+	instance->fmi2 ## f = fmi2 ## f;
+#else
 #define LOAD_SYMBOL(f) \
 	instance->fmi2 ## f = (fmi2 ## f ## TYPE*)GetProcAddress(instance->libraryHandle, "fmi2" #f); \
 	if (!instance->fmi2 ## f) goto fail;
+#endif
 
 #define CALL(f) \
 	fmi2Status status = instance-> ## f (instance->component); \

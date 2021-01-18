@@ -16,11 +16,15 @@ mdl = getfullname(bdroot(block));
 [mdldir, ~, ~] = fileparts(which(mdl));
 unzipdir = fullfile(mdldir, userData.unzipDirectory);
 
-include_dirs = {['"' fullfile(fmikitdir, 'include') '"']};
+include_dirs = {
+  ['"' fullfile(fmikitdir, 'include') '"'], ...
+  ['"' fullfile(fmikitdir, 'src') '"']
+};
+
 sources_files = {}; %#ok<*AGROW>
 
 if userData.useSourceCode
-    % generated S-function
+    include_dirs{end+1} = ['"' fmikitdir '"'];
     include_dirs{end+1} = ['"' fullfile(unzipdir, 'sources') '"'];
     
     it = dialog.getSourceFiles().listIterator();
@@ -28,11 +32,6 @@ if userData.useSourceCode
     while it.hasNext()
         sources_files{end+1} = ['"' fullfile(unzipdir, 'sources', it.next()) '"'];
     end
-else
-    % generic S-function
-    sources_files{end+1} = ['"' fullfile(fmikitdir, 'src', 'FMU.cpp') '"'];
-    sources_files{end+1} = ['"' fullfile(fmikitdir, 'src', 'FMU1.cpp') '"'];
-    sources_files{end+1} = ['"' fullfile(fmikitdir, 'src', 'FMU2.cpp') '"'];
 end
 
 % S-function sources
