@@ -4,12 +4,12 @@
  *  root for license information.                                *
  *****************************************************************/
 
+#include "FMI.c"
+#include "FMI1.c"
+#include "FMI2.c"
+
 #define S_FUNCTION_NAME  sfun_fmurun
 #define S_FUNCTION_LEVEL 2
-
-#include "FMI.h"
-#include "FMI1.h"
-#include "FMI2.h"
 
 #include "simstruc.h"
 

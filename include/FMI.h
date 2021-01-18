@@ -212,4 +212,8 @@ FMI2Instance *FMICreateInstance(const char *instanceName, const char *libraryPat
 
 void FMIFreeInstance(FMI2Instance *instance);
 
+const char* FMIValueReferencesToString(FMI2Instance *instance, const FMIValueReference vr[], size_t nvr);
+
+const char* FMIValuesToString(FMI2Instance *instance, size_t nvr, const void *value, FMIVariableType variableType);
+
 #endif // FMI_H

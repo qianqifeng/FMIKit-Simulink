@@ -5,7 +5,7 @@
 #include "FMI2.h"
 
 
-static void cb_logMessage(fmi1Component c, fmi1String instanceName, fmi1Status status, fmi1String category, fmi1String message, ...) {
+static void cb_logMessage1(fmi1Component c, fmi1String instanceName, fmi1Status status, fmi1String category, fmi1String message, ...) {
 	FMI2Instance *instance = (FMI2Instance *)c;
 	instance->logMessage(instanceName, status, category, message);
 }
@@ -44,73 +44,11 @@ static void *loadSymbol(FMI2Instance *instance, const char *prefix, const char *
 	} \
 	return status;
 
-
-static const char* vrToString(FMI2Instance *instance, const fmi1ValueReference vr[], size_t nvr) {
-
-	size_t pos = 0;
-
-	do {
-		pos += snprintf(&instance->buf1[pos], instance->bufsize1 - pos, "{");
-
-		for (size_t i = 0; i < nvr; i++) {
-
-			pos += snprintf(&instance->buf1[pos], instance->bufsize1 - pos, i < nvr - 1 ? "%u, " : "%u", vr[i]);
-
-			if (pos > instance->bufsize1 - 2) {
-				pos = 0;
-				instance->bufsize1 *= 2;
-				instance->buf1 = (char*)realloc(instance->buf1, instance->bufsize1);
-				break;
-			}
-		}
-	} while (pos == 0);
-
-	pos += snprintf(&instance->buf1[pos], instance->bufsize1 - pos, "}");
-
-	return instance->buf1;
-}
-
-static const char* valueToString(FMI2Instance *instance, size_t nvr, const void *value, FMI1VariableType variableType) {
-
-	size_t pos = 0;
-
-	do {
-		pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, "{");
-
-		for (size_t i = 0; i < nvr; i++) {
-
-			switch (variableType) {
-			case FMI1RealType:
-				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "%g, " : "%g", ((fmi1Real *)value)[i]);
-				break;
-			case FMI1IntegerType:
-			case FMI1BooleanType:
-				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "%d, " : "%d", ((int *)value)[i]);
-				break;
-			case FMI1StringType:
-				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "\"%s\", " : "\"%s\"", ((fmi1String *)value)[i]);
-				break;
-			}
-
-			if (pos > instance->bufsize2 - 2) {
-				pos = 0;
-				instance->bufsize2 *= 2;
-				instance->buf2 = (char*)realloc(instance->buf2, instance->bufsize2);
-				break;
-			}
-		}
-	} while (pos == 0);
-
-	pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, "}");
-
-	return instance->buf2;
-}
-
 #define CALL_ARRAY(s, t) \
 	fmi1Status status = instance->fmi1 ## s ## t(instance->component, vr, nvr, value); \
 	if (instance->logFunctionCall) { \
-		vrToString(instance, vr, nvr); \
-		valueToString(instance, nvr, value, FMI1 ## t ## Type); \
+		FMIValueReferencesToString(instance, vr, nvr); \
+		FMIValuesToString(instance, nvr, value, FMI1 ## t ## Type); \
 		instance->logFunctionCall(status, instance->name, "fmi1" #s #t "(component=0x%p, vr=%s, nvr=%zu, value=%s)", instance->component, instance->buf1, nvr, instance->buf2); \
 	} \
 	return status;
@@ -211,7 +149,7 @@ fmi1Status FMI1InstantiateModel(FMI2Instance *instance, fmi1String modelIdentifi
 	LOAD_SYMBOL(Terminate)
 
 	fmi1CallbackFunctions functions = {
-		cb_logMessage,
+		cb_logMessage1,
 		calloc,
 		free,
 		NULL
@@ -247,7 +185,7 @@ fmi1Status    FMI1SetTime(FMI2Instance *instance, fmi1Real time) {
 fmi1Status    FMI1SetContinuousStates(FMI2Instance *instance, const fmi1Real x[], size_t nx) {
 	fmi1Status status = instance->fmi1SetContinuousStates(instance->component, x, nx);
 	if (instance->logFunctionCall) {
-		valueToString(instance, nx, x, FMI1RealType);
+		FMIValuesToString(instance, nx, x, FMI1RealType);
 		instance->logFunctionCall(status, instance->name, "fmi1SetContinuousStates(component=0x%p, x=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
@@ -264,7 +202,7 @@ fmi1Status    FMI1Initialize(FMI2Instance *instance, fmi1Boolean toleranceContro
 fmi1Status    FMI1GetDerivatives(FMI2Instance *instance, fmi1Real derivatives[], size_t nx) {
 	fmi1Status status = instance->fmi1GetDerivatives(instance->component, derivatives, nx);
 	if (instance->logFunctionCall) {
-		valueToString(instance, nx, derivatives, FMI1RealType);
+		FMIValuesToString(instance, nx, derivatives, FMI1RealType);
 		instance->logFunctionCall(status, instance->name, "fmi1GetDerivatives(component=0x%p, derivatives=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
@@ -273,7 +211,7 @@ fmi1Status    FMI1GetDerivatives(FMI2Instance *instance, fmi1Real derivatives[],
 fmi1Status    FMI1GetEventIndicators(FMI2Instance *instance, fmi1Real eventIndicators[], size_t ni) {
 	fmi1Status status = instance->fmi1GetEventIndicators(instance->component, eventIndicators, ni);
 	if (instance->logFunctionCall) {
-		valueToString(instance, ni, eventIndicators, FMI1RealType);
+		FMIValuesToString(instance, ni, eventIndicators, FMI1RealType);
 		instance->logFunctionCall(status, instance->name, "fmi1GetEventIndicators(component=0x%p, eventIndicators=%s, ni=%zu)", instance->component, instance->buf2, ni);
 	}
 	return status;
@@ -286,7 +224,7 @@ fmi1Status    FMI1EventUpdate(FMI2Instance *instance, fmi1Boolean intermediateRe
 fmi1Status    FMI1GetContinuousStates(FMI2Instance *instance, fmi1Real states[], size_t nx) {
 	fmi1Status status = instance->fmi1GetContinuousStates(instance->component, states, nx);
 	if (instance->logFunctionCall) {
-		valueToString(instance, nx, states, FMI1RealType);
+		FMIValuesToString(instance, nx, states, FMI1RealType);
 		instance->logFunctionCall(status, instance->name, "fmi2GetContinuousStates(component=0x%p, x=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
@@ -295,7 +233,7 @@ fmi1Status    FMI1GetContinuousStates(FMI2Instance *instance, fmi1Real states[],
 fmi1Status    FMI1GetNominalContinuousStates(FMI2Instance *instance, fmi1Real x_nominal[], size_t nx) {
 	fmi1Status status = instance->fmi1GetNominalContinuousStates(instance->component, x_nominal, nx);
 	if (instance->logFunctionCall) {
-		valueToString(instance, nx, x_nominal, FMI1RealType);
+		FMIValuesToString(instance, nx, x_nominal, FMI1RealType);
 		instance->logFunctionCall(status, instance->name, "fmi1GetNominalContinuousStates(component=0x%p, x_nominal=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
@@ -363,7 +301,7 @@ fmi1Status FMI1InstantiateSlave(FMI2Instance *instance, fmi1String modelIdentifi
 	LOAD_SYMBOL(GetStringStatus)
 
 	fmi1CallbackFunctions functions = {
-		cb_logMessage,
+		cb_logMessage1,
 		calloc,
 		free,
 		NULL
@@ -443,3 +381,8 @@ fmi1Status FMI1GetBooleanStatus(FMI2Instance *instance, const fmi1StatusKind s, 
 fmi1Status FMI1GetStringStatus(FMI2Instance *instance, const fmi1StatusKind s, fmi1String* value) {
 	CALL_ARGS(fmi1GetStringStatus, "s=%d, value=0x%p", s, value)
 }
+
+#undef LOAD_SYMBOL
+#undef CALL
+#undef CALL_ARGS
+#undef CALL_ARRAY

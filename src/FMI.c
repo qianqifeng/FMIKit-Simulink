@@ -1,9 +1,5 @@
 #ifdef _WIN32
-#include <direct.h>
-#include "Shlwapi.h"
-#pragma comment(lib, "shlwapi.lib")
 #define strdup _strdup
-#define INTERNET_MAX_URL_LENGTH 2083 // from wininet.h
 #else
 #include <stdarg.h>
 #include <dlfcn.h>
@@ -71,4 +67,66 @@ void FMIFreeInstance(FMI2Instance *instance) {
 	}
 	
 	free(instance);
+}
+
+const char* FMIValueReferencesToString(FMI2Instance *instance, const FMIValueReference vr[], size_t nvr) {
+
+	size_t pos = 0;
+
+	do {
+		pos += snprintf(&instance->buf1[pos], instance->bufsize1 - pos, "{");
+
+		for (size_t i = 0; i < nvr; i++) {
+
+			pos += snprintf(&instance->buf1[pos], instance->bufsize1 - pos, i < nvr - 1 ? "%u, " : "%u", vr[i]);
+
+			if (pos > instance->bufsize1 - 2) {
+				pos = 0;
+				instance->bufsize1 *= 2;
+				instance->buf1 = (char*)realloc(instance->buf1, instance->bufsize1);
+				break;
+			}
+		}
+	} while (pos == 0);
+
+	pos += snprintf(&instance->buf1[pos], instance->bufsize1 - pos, "}");
+
+	return instance->buf1;
+}
+
+const char* FMIValuesToString(FMI2Instance *instance, size_t nvr, const void *value, FMIVariableType variableType) {
+
+	size_t pos = 0;
+
+	do {
+		pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, "{");
+
+		for (size_t i = 0; i < nvr; i++) {
+
+			switch (variableType) {
+			case FMIRealType:
+				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "%g, " : "%g", ((fmi2Real *)value)[i]);
+				break;
+			case FMIIntegerType:
+			case FMIBooleanType:
+				// TODO: handle fmi1Boolean
+				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "%d, " : "%d", ((int *)value)[i]);
+				break;
+			case FMIStringType:
+				pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, i < nvr - 1 ? "\"%s\", " : "\"%s\"", ((fmi2String *)value)[i]);
+				break;
+			}
+
+			if (pos > instance->bufsize2 - 2) {
+				pos = 0;
+				instance->bufsize2 *= 2;
+				instance->buf2 = (char*)realloc(instance->buf2, instance->bufsize2);
+				break;
+			}
+		}
+	} while (pos == 0);
+
+	pos += snprintf(&instance->buf2[pos], instance->bufsize2 - pos, "}");
+
+	return instance->buf2;
 }

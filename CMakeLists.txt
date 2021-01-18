@@ -41,9 +41,6 @@ add_library(sfun_fmurun SHARED
   include/FMI1.h
   include/FMI2.h
   sfun_fmurun.c
-  src/FMI.c
-  src/FMI1.c
-  src/FMI2.c
 )
 
 SET_TARGET_PROPERTIES(sfun_fmurun PROPERTIES PREFIX "")
@@ -62,7 +59,7 @@ target_include_directories(sfun_fmurun PUBLIC
 	${MATLAB_DIR}/extern/include
 	${MATLAB_DIR}/simulink/include
 	include
-	coder
+	src
 )
 
 if (WIN32)
