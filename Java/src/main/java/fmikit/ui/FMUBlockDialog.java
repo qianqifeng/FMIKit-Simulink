@@ -89,7 +89,7 @@ public class FMUBlockDialog extends JDialog {
 
     public FMUBlockDialog() {
 
-        setMinimumSize(new Dimension(850, 650));
+        setMinimumSize(new Dimension(950, 850));
 
         setContentPane(contentPane);
 
