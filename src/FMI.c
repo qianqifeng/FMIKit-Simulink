@@ -10,9 +10,9 @@
 #define INITIAL_MESSAGE_BUFFER_SIZE 1024
 
 
-FMI2Instance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMILogMessage *logMessage, FMILogFunctionCall *logFunctionCall) {
+FMIInstance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMILogMessage *logMessage, FMILogFunctionCall *logFunctionCall) {
 
-	FMI2Instance* instance = (FMI2Instance*)calloc(1, sizeof(FMI2Instance));
+	FMIInstance* instance = (FMIInstance*)calloc(1, sizeof(FMIInstance));
 
 	instance->logMessage = logMessage;
 	instance->logFunctionCall = logFunctionCall;
@@ -54,7 +54,7 @@ FMI2Instance *FMICreateInstance(const char *instanceName, const char *libraryPat
 	return instance;
 }
 
-void FMIFreeInstance(FMI2Instance *instance) {
+void FMIFreeInstance(FMIInstance *instance) {
 
 	// unload the shared library
 	if (instance->libraryHandle) {
@@ -69,7 +69,7 @@ void FMIFreeInstance(FMI2Instance *instance) {
 	free(instance);
 }
 
-const char* FMIValueReferencesToString(FMI2Instance *instance, const FMIValueReference vr[], size_t nvr) {
+const char* FMIValueReferencesToString(FMIInstance *instance, const FMIValueReference vr[], size_t nvr) {
 
 	size_t pos = 0;
 
@@ -94,7 +94,7 @@ const char* FMIValueReferencesToString(FMI2Instance *instance, const FMIValueRef
 	return instance->buf1;
 }
 
-const char* FMIValuesToString(FMI2Instance *instance, size_t nvr, const void *value, FMIVariableType variableType) {
+const char* FMIValuesToString(FMIInstance *instance, size_t nvr, const void *value, FMIVariableType variableType) {
 
 	size_t pos = 0;
 

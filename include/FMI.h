@@ -206,14 +206,14 @@ typedef struct {
 
 	fmi2EventInfo eventInfo;
 
-} FMI2Instance;
+} FMIInstance;
 
-FMI2Instance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMILogMessage *logMessage, FMILogFunctionCall *logFunctionCall);
+FMIInstance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMILogMessage *logMessage, FMILogFunctionCall *logFunctionCall);
 
-void FMIFreeInstance(FMI2Instance *instance);
+void FMIFreeInstance(FMIInstance *instance);
 
-const char* FMIValueReferencesToString(FMI2Instance *instance, const FMIValueReference vr[], size_t nvr);
+const char* FMIValueReferencesToString(FMIInstance *instance, const FMIValueReference vr[], size_t nvr);
 
-const char* FMIValuesToString(FMI2Instance *instance, size_t nvr, const void *value, FMIVariableType variableType);
+const char* FMIValuesToString(FMIInstance *instance, size_t nvr, const void *value, FMIVariableType variableType);
 
 #endif // FMI_H

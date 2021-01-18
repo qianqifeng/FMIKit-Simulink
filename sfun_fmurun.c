@@ -284,7 +284,7 @@ static void setInput(SimStruct *S, bool direct) {
 
 	void **p = ssGetPWork(S);
 
-	FMI2Instance *instance = (FMI2Instance *)p[0];
+	FMIInstance *instance = (FMIInstance *)p[0];
 
 	int iu = 0;
 
@@ -352,7 +352,7 @@ static void setOutput(SimStruct *S) {
 
 	void **p = ssGetPWork(S);
 
-	FMI2Instance *instance = (FMI2Instance *)p[0];
+	FMIInstance *instance = (FMIInstance *)p[0];
 
 	int iy = 0;
 
@@ -437,7 +437,7 @@ static void setStartValues(SimStruct *S) {
 
 	void **p = ssGetPWork(S);
 
-	FMI2Instance *instance = (FMI2Instance *)p[0];
+	FMIInstance *instance = (FMIInstance *)p[0];
 
     // scalar start values
 	for (int i = 0; i < nScalarStartValues(S); i++) {
@@ -514,7 +514,7 @@ static void update(SimStruct *S) {
 		return;  // nothing to do
 	}
 
-	FMI2Instance *instance = (FMI2Instance *)ssGetPWork(S)[0];
+	FMIInstance *instance = (FMIInstance *)ssGetPWork(S)[0];
 
 	double time = instance->time;
 	bool upcomingTimeEvent;
@@ -810,7 +810,7 @@ static void mdlStart(SimStruct *S) {
 	strncat(libraryPath, ".dll", MAX_PATH);
 #endif
 
-	FMI2Instance *instance = FMICreateInstance(instanceName, libraryPath, cb_logMessage, logFMICalls(S) ? cb_logFunctionCall : NULL);
+	FMIInstance *instance = FMICreateInstance(instanceName, libraryPath, cb_logMessage, logFMICalls(S) ? cb_logFunctionCall : NULL);
 
 	p[0] = instance;
 
@@ -890,7 +890,7 @@ static void mdlInitializeConditions(SimStruct *S) {
 
 	void **p = ssGetPWork(S);
 
-	FMI2Instance *instance = (FMI2Instance *)p[0];
+	FMIInstance *instance = (FMIInstance *)p[0];
 
 	// initialize the continuous states
 	real_T *x = ssGetContStates(S);
@@ -927,7 +927,7 @@ static void mdlOutputs(SimStruct *S, int_T tid) {
 
 	void **p = ssGetPWork(S);
 
-	FMI2Instance *instance = (FMI2Instance *)p[0];
+	FMIInstance *instance = (FMIInstance *)p[0];
 
 	if (isME(S)) {
 
@@ -1019,7 +1019,7 @@ static void mdlZeroCrossings(SimStruct *S) {
 
 		void **p = ssGetPWork(S);
 
-		FMI2Instance *instance = (FMI2Instance *)p[0];
+		FMIInstance *instance = (FMIInstance *)p[0];
 
 		if (nz(S) > 0) {
 			if (isFMI1(S)) {
@@ -1049,7 +1049,7 @@ static void mdlDerivatives(SimStruct *S) {
 		
 	void **p = ssGetPWork(S);
 
-	FMI2Instance *instance = (FMI2Instance *)p[0];
+	FMIInstance *instance = (FMIInstance *)p[0];
 
 	setInput(S, true);
 
@@ -1073,7 +1073,7 @@ static void mdlTerminate(SimStruct *S) {
 
 	logDebug(S, "mdlTerminate()");
 
-	FMI2Instance *instance = (FMI2Instance *)ssGetPWork(S)[0];
+	FMIInstance *instance = (FMIInstance *)ssGetPWork(S)[0];
 
 	if (isFMI1(S)) {
 
