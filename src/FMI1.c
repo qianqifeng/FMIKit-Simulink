@@ -4,11 +4,22 @@
 #include "FMI1.h"
 #include "FMI2.h"
 
+// keep track of the current instance for the log callback
+static FMIInstance *currentInstance = NULL;
 
 static void cb_logMessage1(fmi1Component c, fmi1String instanceName, fmi1Status status, fmi1String category, fmi1String message, ...) {
-	FMIInstance *instance = (FMIInstance *)c;
-	// TODO: call logMessage()
-	//instance->logMessage(instance, status, category, message);
+	
+	if (!currentInstance) return;
+	
+	char buf[FMI_MAX_MESSAGE_LENGTH];
+
+	va_list args;
+
+	va_start(args, message);
+	vsnprintf(buf, FMI_MAX_MESSAGE_LENGTH, message, args);
+	va_end(args);
+
+	currentInstance->logMessage(currentInstance, status, category, buf);
 }
 
 #define MAX_SYMBOL_LENGTH 256
@@ -32,6 +43,7 @@ static void *loadSymbol(FMIInstance *instance, const char *prefix, const char *n
 	}
 
 #define CALL(f) \
+	currentInstance = instance; \
 	fmi1Status status = instance-> ## f (instance->component); \
 	if (instance->logFunctionCall) { \
 		instance->logFunctionCall(instance, status, #f "(component=0x%p)", instance->component); \
@@ -39,6 +51,7 @@ static void *loadSymbol(FMIInstance *instance, const char *prefix, const char *n
 	return status;
 
 #define CALL_ARGS(f, m, ...) \
+	currentInstance = instance; \
 	fmi1Status status = instance-> ## f (instance->component, __VA_ARGS__); \
 	if (instance->logFunctionCall) { \
 		instance->logFunctionCall(instance, status, #f "(component=0x%p, " m ")", instance->component, __VA_ARGS__); \
@@ -46,6 +59,7 @@ static void *loadSymbol(FMIInstance *instance, const char *prefix, const char *n
 	return status;
 
 #define CALL_ARRAY(s, t) \
+	currentInstance = instance; \
 	fmi1Status status = instance->fmi1 ## s ## t(instance->component, vr, nvr, value); \
 	if (instance->logFunctionCall) { \
 		FMIValueReferencesToString(instance, vr, nvr); \
@@ -100,6 +114,7 @@ fmi1Status    FMI1SetDebugLogging(FMIInstance *instance, fmi1Boolean loggingOn) 
 ****************************************************/
 
 const char*   FMI1GetModelTypesPlatform(FMIInstance *instance) {
+	currentInstance = instance;
 	if (instance->logFunctionCall) {
 		instance->logFunctionCall(instance, FMIOK, "fmiGetModelTypesPlatform()");
 	}
@@ -107,6 +122,7 @@ const char*   FMI1GetModelTypesPlatform(FMIInstance *instance) {
 }
 
 const char*   FMI1GetVersion(FMIInstance *instance) {
+	currentInstance = instance; 
 	if (instance->logFunctionCall) {
 		instance->logFunctionCall(instance, FMIOK, "fmiGetVersion()");
 	}
@@ -114,6 +130,8 @@ const char*   FMI1GetVersion(FMIInstance *instance) {
 }
 
 fmi1Status FMI1InstantiateModel(FMIInstance *instance, fmi1String modelIdentifier, fmi1String GUID, fmi1Boolean loggingOn) {
+
+	currentInstance = instance;
 
 	instance->fmiVersion = FMIVersion1;
 
@@ -172,6 +190,8 @@ fail:
 
 void FMI1FreeModelInstance(FMIInstance *instance) {
 
+	currentInstance = instance;
+
 	instance->fmi1FreeModelInstance(instance->component);
 	
 	if (instance->logFunctionCall) {
@@ -184,6 +204,7 @@ fmi1Status    FMI1SetTime(FMIInstance *instance, fmi1Real time) {
 }
 
 fmi1Status    FMI1SetContinuousStates(FMIInstance *instance, const fmi1Real x[], size_t nx) {
+	currentInstance = instance;
 	fmi1Status status = instance->fmi1SetContinuousStates(instance->component, x, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, x, FMI1RealType);
@@ -201,6 +222,7 @@ fmi1Status    FMI1Initialize(FMIInstance *instance, fmi1Boolean toleranceControl
 }
 
 fmi1Status    FMI1GetDerivatives(FMIInstance *instance, fmi1Real derivatives[], size_t nx) {
+	currentInstance = instance;
 	fmi1Status status = instance->fmi1GetDerivatives(instance->component, derivatives, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, derivatives, FMI1RealType);
@@ -210,6 +232,7 @@ fmi1Status    FMI1GetDerivatives(FMIInstance *instance, fmi1Real derivatives[], 
 }
 
 fmi1Status    FMI1GetEventIndicators(FMIInstance *instance, fmi1Real eventIndicators[], size_t ni) {
+	currentInstance = instance;
 	fmi1Status status = instance->fmi1GetEventIndicators(instance->component, eventIndicators, ni);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, ni, eventIndicators, FMI1RealType);
@@ -223,6 +246,7 @@ fmi1Status    FMI1EventUpdate(FMIInstance *instance, fmi1Boolean intermediateRes
 }
 
 fmi1Status    FMI1GetContinuousStates(FMIInstance *instance, fmi1Real states[], size_t nx) {
+	currentInstance = instance;
 	fmi1Status status = instance->fmi1GetContinuousStates(instance->component, states, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, states, FMI1RealType);
@@ -232,6 +256,7 @@ fmi1Status    FMI1GetContinuousStates(FMIInstance *instance, fmi1Real states[], 
 }
 
 fmi1Status    FMI1GetNominalContinuousStates(FMIInstance *instance, fmi1Real x_nominal[], size_t nx) {
+	currentInstance = instance;
 	fmi1Status status = instance->fmi1GetNominalContinuousStates(instance->component, x_nominal, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, x_nominal, FMI1RealType);
@@ -241,6 +266,7 @@ fmi1Status    FMI1GetNominalContinuousStates(FMIInstance *instance, fmi1Real x_n
 }
 
 fmi1Status    FMI1GetStateValueReferences(FMIInstance *instance, fmi1ValueReference vrx[], size_t nx) {
+	currentInstance = instance;
 	fmi1Status status = instance->fmi1GetStateValueReferences(instance->component, vrx, nx);
 	if (instance->logFunctionCall) {
 		// TODO
@@ -257,6 +283,7 @@ fmi1Status FMI1Terminate(FMIInstance *instance) {
 ****************************************************/
 
 const char*   FMI1GetTypesPlatform(FMIInstance *instance) {
+	currentInstance = instance;
 	if (instance->logFunctionCall) {
 		instance->logFunctionCall(instance, FMIOK, "fmi1GetTypesPlatform()");
 	}
@@ -264,6 +291,8 @@ const char*   FMI1GetTypesPlatform(FMIInstance *instance) {
 }
 
 fmi1Status FMI1InstantiateSlave(FMIInstance *instance, fmi1String modelIdentifier, fmi1String fmuGUID, fmi1String fmuLocation, fmi1String  mimeType, fmi1Real timeout, fmi1Boolean visible, fmi1Boolean interactive, fmi1Boolean loggingOn) {
+
+	currentInstance = instance;
 
 	instance->fmiVersion = FMIVersion1;
 
@@ -334,6 +363,8 @@ fmi1Status    FMI1ResetSlave(FMIInstance *instance) {
 
 void FMI1FreeSlaveInstance(FMIInstance *instance) {
 
+	currentInstance = instance;
+
 	instance->fmi1FreeSlaveInstance(instance->component);
 
 	if (instance->logFunctionCall) {
@@ -354,6 +385,8 @@ fmi1Status    FMI1CancelStep(FMIInstance *instance) {
 }
 
 fmi1Status    FMI1DoStep(FMIInstance *instance, fmi1Real currentCommunicationPoint, fmi1Real communicationStepSize, fmi1Boolean newStep) {
+
+	currentInstance = instance;
 
 	instance->time = currentCommunicationPoint + communicationStepSize;
 

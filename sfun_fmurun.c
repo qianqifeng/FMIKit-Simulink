@@ -4,6 +4,8 @@
  *  root for license information.                                *
  *****************************************************************/
 
+#define FMI_MAX_MESSAGE_LENGTH 4096
+
 #include "FMI.c"
 #include "FMI1.c"
 #include "FMI2.c"
@@ -42,7 +44,6 @@
 //using namespace std;
 //using namespace fmikit;
 
-#define MAX_MESSAGE_SIZE 4096
 
 typedef enum {
 
@@ -235,21 +236,69 @@ static void logCall(SimStruct *S, const char* message) {
     }
 }
 
-static void cb_logMessage(FMIInstance *instance, FMIStatus status, const char * category, const char * message) {
-	ssPrintf(message);
-	ssPrintf("\n");
+static void appendStatus(FMIStatus status, char *message, size_t size) {
+	
+	const char *ret;
+
+	switch (status) {
+	case FMIOK:
+		ret = " -> OK";
+		break;
+	case FMIWarning:
+		ret = " -> Warning";
+		break;
+	case FMIDiscard:
+		ret = " -> Discard";
+		break;
+	case FMIError:
+		ret = " -> Error";
+		break;
+	case FMIFatal:
+		ret = " -> Fatal";
+		break;
+	case FMIPending:
+		ret = " -> Pending";
+		break;
+	default:
+		ret = "Illegal status code";
+		break;
+	}
+
+	strncat(message, ret, size);
+}
+
+static void cb_logMessage(FMIInstance *instance, FMIStatus status, const char *category, const char * message) {
+	
+	char buf[FMI_MAX_MESSAGE_LENGTH];
+
+	size_t len = snprintf(buf, FMI_MAX_MESSAGE_LENGTH, "[%s] ", instance->name);
+
+	strncat(buf, message, FMI_MAX_MESSAGE_LENGTH);
+
+	appendStatus(status, buf, FMI_MAX_MESSAGE_LENGTH);
+	
+	SimStruct *S = (SimStruct *)instance->userData;
+
+	logCall(S, buf);
 }
 
 static void cb_logFunctionCall(FMIInstance *instance, FMIStatus status, const char *message, ...) {
-	char s[MAX_MESSAGE_SIZE];
+	
+	char buf[FMI_MAX_MESSAGE_LENGTH];
+
+	size_t len = snprintf(buf, FMI_MAX_MESSAGE_LENGTH, "[%s] ", instance->name);
+
 	va_list args;
-	size_t len = snprintf(s, MAX_MESSAGE_SIZE, "[%s] ", instance->name);
+
 	va_start(args, message);
-	len += vsnprintf(&s[len], MAX_MESSAGE_SIZE - len, message, args);
+	len += vsnprintf(&buf[len], FMI_MAX_MESSAGE_LENGTH - len, message, args);
 	va_end(args);
-	len += snprintf(&s[len], MAX_MESSAGE_SIZE - len, " -> %d\n", status);
-	ssPrintf(s);
-	ssPrintf("\n");
+
+	appendStatus(status, buf, FMI_MAX_MESSAGE_LENGTH);
+
+	SimStruct *S = (SimStruct *)instance->userData;
+
+	logCall(S, buf);
 }
 
 
@@ -261,13 +310,13 @@ static void logDebug(SimStruct *S, const char* message, ...) {
 
     if (logFMICalls(S)) {
 		
-		char buf[MAX_MESSAGE_SIZE];
+		char buf[FMI_MAX_MESSAGE_LENGTH];
 		
-		size_t len = snprintf(buf, MAX_MESSAGE_SIZE, "[%s] ", ssGetPath(S));
+		size_t len = snprintf(buf, FMI_MAX_MESSAGE_LENGTH, "[%s] ", ssGetPath(S));
 		
 		va_list args;
 		va_start(args, message);
-        vsnprintf(&buf[len], MAX_MESSAGE_SIZE - len, message, args);
+        vsnprintf(&buf[len], FMI_MAX_MESSAGE_LENGTH - len, message, args);
         va_end(args);
 
         logCall(S, buf);
@@ -708,7 +757,7 @@ static void mdlInitializeSizes(SimStruct *S) {
 		ssSetInputPortDataType(S, i, type);
 		bool dirFeed = inputPortDirectFeedThrough(S, i);
 		ssSetInputPortDirectFeedThrough(S, i, dirFeed); // direct feed through
-		logDebug(S, "ssSetInputPortDirectFeedThrough(path=\"%s\", port=%d, dirFeed=%d)", ssGetPath(S), i, dirFeed);
+		logDebug(S, "ssSetInputPortDirectFeedThrough(port=%d, dirFeed=%d)", i, dirFeed);
 	}
 
 	if (!ssSetNumOutputPorts(S, ny(S))) return;
@@ -814,6 +863,8 @@ static void mdlStart(SimStruct *S) {
 #endif
 
 	FMIInstance *instance = FMICreateInstance(instanceName, libraryPath, cb_logMessage, logFMICalls(S) ? cb_logFunctionCall : NULL);
+
+	instance->userData = S;
 
 	p[0] = instance;
 

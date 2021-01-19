@@ -10,6 +10,9 @@
 #include "fmi1Functions.h"
 #include "fmi2Functions.h"
 
+#ifndef FMI_MAX_MESSAGE_LENGTH
+#define FMI_MAX_MESSAGE_LENGTH 4096
+#endif
 
 typedef enum {
 	FMIOK,
@@ -193,6 +196,8 @@ struct FMIInstance_ {
 #else
 	void *libraryHandle;
 #endif
+
+	void *userData;
 
 	FMILogMessage      *logMessage;
 	FMILogFunctionCall *logFunctionCall;
