@@ -235,15 +235,15 @@ static void logCall(SimStruct *S, const char* message) {
     }
 }
 
-static void cb_logMessage(fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message) {
+static void cb_logMessage(FMIInstance *instance, FMIStatus status, const char * category, const char * message) {
 	ssPrintf(message);
 	ssPrintf("\n");
 }
 
-static void cb_logFunctionCall(fmi2Status status, const char *instanceName, const char *message, ...) {
+static void cb_logFunctionCall(FMIInstance *instance, FMIStatus status, const char *message, ...) {
 	char s[MAX_MESSAGE_SIZE];
 	va_list args;
-	size_t len = snprintf(s, MAX_MESSAGE_SIZE, "[%s] ", instanceName);
+	size_t len = snprintf(s, MAX_MESSAGE_SIZE, "[%s] ", instance->name);
 	va_start(args, message);
 	len += vsnprintf(&s[len], MAX_MESSAGE_SIZE - len, message, args);
 	va_end(args);
@@ -527,8 +527,8 @@ static void update(SimStruct *S) {
 		upcomingTimeEvent = instance->eventInfo1.upcomingTimeEvent;
 		nextEventTime = instance->eventInfo1.nextEventTime;
 	} else {
-		upcomingTimeEvent = instance->eventInfo.nextEventTimeDefined;
-		nextEventTime = instance->eventInfo.nextEventTime;
+		upcomingTimeEvent = instance->eventInfo2.nextEventTimeDefined;
+		nextEventTime = instance->eventInfo2.nextEventTime;
 	}
 
 	// Work around for the event handling in Dymola FMUs:
@@ -601,12 +601,12 @@ static void update(SimStruct *S) {
 			CHECK_STATUS(FMI2EnterEventMode(instance))
 
 			do {
-				CHECK_STATUS(FMI2NewDiscreteStates(instance, &instance->eventInfo))
-				if (instance->eventInfo.terminateSimulation) {
+				CHECK_STATUS(FMI2NewDiscreteStates(instance, &instance->eventInfo2))
+				if (instance->eventInfo2.terminateSimulation) {
 					setErrorStatus(S, "The FMU requested to terminate the simulation.");
 					return;
 				}
-			} while (instance->eventInfo.newDiscreteStatesNeeded);
+			} while (instance->eventInfo2.newDiscreteStatesNeeded);
 
 			CHECK_STATUS(FMI2EnterContinuousTimeMode(instance))
 		}
@@ -759,11 +759,11 @@ static void mdlStart(SimStruct *S) {
         p[1] = NULL;
     }
 
-    //auto logfile = logFile(S);
+	const char *logFile = getStringParam(S, logFileParam);
 
-    //if (!logfile.empty()) {
-    //    p[1] = fopen(logfile.c_str(), "w");
-    //}
+	if (strlen(logFile) > 0) {
+	    p[1] = fopen(logFile, "w");
+	}
 
 	logDebug(S, "mdlStart()");
 
@@ -946,12 +946,12 @@ static void mdlOutputs(SimStruct *S, int_T tid) {
 				if (ssGetErrorStatus(S)) return;
 
 				do {
-					CHECK_STATUS(FMI2NewDiscreteStates(instance, &instance->eventInfo))
-					if (instance->eventInfo.terminateSimulation) {
+					CHECK_STATUS(FMI2NewDiscreteStates(instance, &instance->eventInfo2))
+					if (instance->eventInfo2.terminateSimulation) {
 						setErrorStatus(S, "The FMU requested to terminate the simulation.");
 						return;
 					}
-				} while (instance->eventInfo.newDiscreteStatesNeeded);
+				} while (instance->eventInfo2.newDiscreteStatesNeeded);
 
 				CHECK_STATUS(FMI2EnterContinuousTimeMode(instance))
 			}
@@ -985,9 +985,9 @@ static void mdlOutputs(SimStruct *S, int_T tid) {
 
 		if (h > 0) {
 			if (isFMI1(S)) {
-				CHECK_STATUS(FMI1DoStep(instance, ssGetT(S), h, fmi1True))
+				CHECK_STATUS(FMI1DoStep(instance, instance->time, h, fmi1True))
 			} else {
-				CHECK_STATUS(FMI2DoStep(instance, ssGetT(S), h, fmi2False))
+				CHECK_STATUS(FMI2DoStep(instance, instance->time, h, fmi2False))
 			}
 		}
 	}
@@ -1032,7 +1032,7 @@ static void mdlZeroCrossings(SimStruct *S) {
 			}
 		}
 
-		real_T nextEventTime = instance->eventInfo1.nextEventTime ? isFMI1(S) : instance->eventInfo.nextEventTime;
+		real_T nextEventTime = instance->eventInfo1.nextEventTime ? isFMI1(S) : instance->eventInfo2.nextEventTime;
 
 		z[nz(S)] = nextEventTime - ssGetT(S);
 	}

@@ -7,7 +7,8 @@
 
 static void cb_logMessage1(fmi1Component c, fmi1String instanceName, fmi1Status status, fmi1String category, fmi1String message, ...) {
 	FMIInstance *instance = (FMIInstance *)c;
-	instance->logMessage(instanceName, status, category, message);
+	// TODO: call logMessage()
+	//instance->logMessage(instance, status, category, message);
 }
 
 #define MAX_SYMBOL_LENGTH 256
@@ -18,7 +19,7 @@ static void *loadSymbol(FMIInstance *instance, const char *prefix, const char *n
 	strcat(fname, name);
 	void *addr = GetProcAddress(instance->libraryHandle, fname);
 	if (!addr) {
-		instance->logFunctionCall(fmi2Error, instance->name, "Failed to load function \"%s\".", fname);
+		instance->logFunctionCall(instance, FMIError, "Failed to load function \"%s\".", fname);
 	}
 	return addr;
 }
@@ -33,14 +34,14 @@ static void *loadSymbol(FMIInstance *instance, const char *prefix, const char *n
 #define CALL(f) \
 	fmi1Status status = instance-> ## f (instance->component); \
 	if (instance->logFunctionCall) { \
-		instance->logFunctionCall(status, instance->name, #f "(component=0x%p)", instance->component); \
+		instance->logFunctionCall(instance, status, #f "(component=0x%p)", instance->component); \
 	} \
 	return status;
 
 #define CALL_ARGS(f, m, ...) \
 	fmi1Status status = instance-> ## f (instance->component, __VA_ARGS__); \
 	if (instance->logFunctionCall) { \
-		instance->logFunctionCall(status, instance->name, #f "(component=0x%p, " m ")", instance->component, __VA_ARGS__); \
+		instance->logFunctionCall(instance, status, #f "(component=0x%p, " m ")", instance->component, __VA_ARGS__); \
 	} \
 	return status;
 
@@ -49,7 +50,7 @@ static void *loadSymbol(FMIInstance *instance, const char *prefix, const char *n
 	if (instance->logFunctionCall) { \
 		FMIValueReferencesToString(instance, vr, nvr); \
 		FMIValuesToString(instance, nvr, value, FMI1 ## t ## Type); \
-		instance->logFunctionCall(status, instance->name, "fmi1" #s #t "(component=0x%p, vr=%s, nvr=%zu, value=%s)", instance->component, instance->buf1, nvr, instance->buf2); \
+		instance->logFunctionCall(instance, status, "fmi1" #s #t "(component=0x%p, vr=%s, nvr=%zu, value=%s)", instance->component, instance->buf1, nvr, instance->buf2); \
 	} \
 	return status;
 
@@ -100,14 +101,14 @@ fmi1Status    FMI1SetDebugLogging(FMIInstance *instance, fmi1Boolean loggingOn) 
 
 const char*   FMI1GetModelTypesPlatform(FMIInstance *instance) {
 	if (instance->logFunctionCall) {
-		instance->logFunctionCall(fmi1OK, instance->name, "fmiGetModelTypesPlatform()");
+		instance->logFunctionCall(instance, FMIOK, "fmiGetModelTypesPlatform()");
 	}
 	return instance->fmi1GetModelTypesPlatform();
 }
 
 const char*   FMI1GetVersion(FMIInstance *instance) {
 	if (instance->logFunctionCall) {
-		instance->logFunctionCall(fmi1OK, instance->name, "fmiGetVersion()");
+		instance->logFunctionCall(instance, FMIOK, "fmiGetVersion()");
 	}
 	return instance->fmi1GetVersion();
 }
@@ -150,21 +151,19 @@ fmi1Status FMI1InstantiateModel(FMIInstance *instance, fmi1String modelIdentifie
 	LOAD_SYMBOL(GetStateValueReferences)
 	LOAD_SYMBOL(Terminate)
 
-	fmi1CallbackFunctions functions = {
-		cb_logMessage1,
-		calloc,
-		free,
-		NULL
-	};
+	instance->functions1.logger         = cb_logMessage1;
+	instance->functions1.allocateMemory = calloc;
+	instance->functions1.freeMemory     = free;
+	instance->functions1.stepFinished   = NULL;
 
-	instance->component = instance->fmi1InstantiateModel(instance->name, GUID, functions, loggingOn);
+	instance->component = instance->fmi1InstantiateModel(instance->name, GUID, instance->functions1, loggingOn);
 
 	status = instance->component ? fmi1OK : fmi1Error;
 
 	if (instance->logFunctionCall) {
-		instance->logFunctionCall(status, instance->name,
+		instance->logFunctionCall(instance, status,
 			"fmi1InstantiateModel(instanceName=\"%s\", GUID=\"%s\", functions=0x%p, loggingOn=%d)",
-			instance->name, GUID, &functions, loggingOn);
+			instance->name, GUID, &instance->functions1, loggingOn);
 	}
 
 fail:
@@ -176,7 +175,7 @@ void FMI1FreeModelInstance(FMIInstance *instance) {
 	instance->fmi1FreeModelInstance(instance->component);
 	
 	if (instance->logFunctionCall) {
-		instance->logFunctionCall(fmi1OK, instance->name, "fmi1FreeModelInstance(component=0x%p)", instance->component);
+		instance->logFunctionCall(instance, FMIOK, "fmi1FreeModelInstance(component=0x%p)", instance->component);
 	}
 }
 
@@ -188,7 +187,7 @@ fmi1Status    FMI1SetContinuousStates(FMIInstance *instance, const fmi1Real x[],
 	fmi1Status status = instance->fmi1SetContinuousStates(instance->component, x, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, x, FMI1RealType);
-		instance->logFunctionCall(status, instance->name, "fmi1SetContinuousStates(component=0x%p, x=%s, nx=%zu)", instance->component, instance->buf2, nx);
+		instance->logFunctionCall(instance, status, "fmi1SetContinuousStates(component=0x%p, x=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
 }
@@ -205,7 +204,7 @@ fmi1Status    FMI1GetDerivatives(FMIInstance *instance, fmi1Real derivatives[], 
 	fmi1Status status = instance->fmi1GetDerivatives(instance->component, derivatives, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, derivatives, FMI1RealType);
-		instance->logFunctionCall(status, instance->name, "fmi1GetDerivatives(component=0x%p, derivatives=%s, nx=%zu)", instance->component, instance->buf2, nx);
+		instance->logFunctionCall(instance, status, "fmi1GetDerivatives(component=0x%p, derivatives=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
 }
@@ -214,7 +213,7 @@ fmi1Status    FMI1GetEventIndicators(FMIInstance *instance, fmi1Real eventIndica
 	fmi1Status status = instance->fmi1GetEventIndicators(instance->component, eventIndicators, ni);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, ni, eventIndicators, FMI1RealType);
-		instance->logFunctionCall(status, instance->name, "fmi1GetEventIndicators(component=0x%p, eventIndicators=%s, ni=%zu)", instance->component, instance->buf2, ni);
+		instance->logFunctionCall(instance, status, "fmi1GetEventIndicators(component=0x%p, eventIndicators=%s, ni=%zu)", instance->component, instance->buf2, ni);
 	}
 	return status;
 }
@@ -227,7 +226,7 @@ fmi1Status    FMI1GetContinuousStates(FMIInstance *instance, fmi1Real states[], 
 	fmi1Status status = instance->fmi1GetContinuousStates(instance->component, states, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, states, FMI1RealType);
-		instance->logFunctionCall(status, instance->name, "fmi2GetContinuousStates(component=0x%p, x=%s, nx=%zu)", instance->component, instance->buf2, nx);
+		instance->logFunctionCall(instance, status, "fmi2GetContinuousStates(component=0x%p, x=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
 }
@@ -236,7 +235,7 @@ fmi1Status    FMI1GetNominalContinuousStates(FMIInstance *instance, fmi1Real x_n
 	fmi1Status status = instance->fmi1GetNominalContinuousStates(instance->component, x_nominal, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, x_nominal, FMI1RealType);
-		instance->logFunctionCall(status, instance->name, "fmi1GetNominalContinuousStates(component=0x%p, x_nominal=%s, nx=%zu)", instance->component, instance->buf2, nx);
+		instance->logFunctionCall(instance, status, "fmi1GetNominalContinuousStates(component=0x%p, x_nominal=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
 }
@@ -259,7 +258,7 @@ fmi1Status FMI1Terminate(FMIInstance *instance) {
 
 const char*   FMI1GetTypesPlatform(FMIInstance *instance) {
 	if (instance->logFunctionCall) {
-		instance->logFunctionCall(fmi1OK, instance->name, "fmi1GetTypesPlatform()");
+		instance->logFunctionCall(instance, FMIOK, "fmi1GetTypesPlatform()");
 	}
 	return instance->fmi1GetTypesPlatform();
 }
@@ -302,21 +301,19 @@ fmi1Status FMI1InstantiateSlave(FMIInstance *instance, fmi1String modelIdentifie
 	LOAD_SYMBOL(GetBooleanStatus)
 	LOAD_SYMBOL(GetStringStatus)
 
-	fmi1CallbackFunctions functions = {
-		cb_logMessage1,
-		calloc,
-		free,
-		NULL
-	};
+	instance->functions1.logger         = cb_logMessage1;
+	instance->functions1.allocateMemory = calloc;
+	instance->functions1.freeMemory     = free;
+	instance->functions1.stepFinished   = NULL;
 
-	instance->component = instance->fmi1InstantiateSlave(instance->name, fmuGUID, fmuLocation, mimeType, timeout, visible, interactive, functions, loggingOn);
+	instance->component = instance->fmi1InstantiateSlave(instance->name, fmuGUID, fmuLocation, mimeType, timeout, visible, interactive, instance->functions1, loggingOn);
 
 	status = instance->component ? fmi1OK : fmi1Error;
 
 	if (instance->logFunctionCall) {
-		instance->logFunctionCall(status, instance->name,
+		instance->logFunctionCall(instance, status,
 			"fmi1InstantiateSlave(instanceName=\"%s\", fmuGUID=\"%s\", fmuLocation=\"%s\", mimeType=\"%s\", timeout=%g, visible=%d, interactive=%d, functions=0x%p, loggingOn=%d)",
-			instance->name, fmuGUID, fmuLocation, mimeType, timeout, visible, interactive, &functions, loggingOn);
+			instance->name, fmuGUID, fmuLocation, mimeType, timeout, visible, interactive, &instance->functions1, loggingOn);
 	}
 
 fail:
@@ -340,7 +337,7 @@ void FMI1FreeSlaveInstance(FMIInstance *instance) {
 	instance->fmi1FreeSlaveInstance(instance->component);
 
 	if (instance->logFunctionCall) {
-		instance->logFunctionCall(fmi1OK, instance->name, "fmi1FreeSlaveInstance(component=0x%p)", instance->component);
+		instance->logFunctionCall(instance, FMIOK, "fmi1FreeSlaveInstance(component=0x%p)", instance->component);
 	}
 }
 

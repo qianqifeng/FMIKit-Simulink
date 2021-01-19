@@ -9,6 +9,7 @@
 #include <dlfcn.h>
 #endif
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -17,7 +18,8 @@
 
 static void cb_logMessage2(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
 	FMIInstance *instance = componentEnvironment;
-	instance->logMessage(instanceName, status, category, message);
+	// TODO: process variadic args
+	instance->logMessage(instance, status, category, message);
 }
 
 #ifdef FMI2_FUNCTION_PREFIX
@@ -32,14 +34,14 @@ static void cb_logMessage2(fmi2ComponentEnvironment componentEnvironment, fmi2St
 #define CALL(f) \
 	fmi2Status status = instance-> ## f (instance->component); \
 	if (instance->logFunctionCall) { \
-		instance->logFunctionCall(status, instance->name, #f "(component=0x%p)", instance->component); \
+		instance->logFunctionCall(instance, status, #f "(component=0x%p)", instance->component); \
 	} \
 	return status;
 
 #define CALL_ARGS(f, m, ...) \
 	fmi2Status status = instance-> ## f (instance->component, __VA_ARGS__); \
 	if (instance->logFunctionCall) { \
-		instance->logFunctionCall(status, instance->name, #f "(component=0x%p, " m ")", instance->component, __VA_ARGS__); \
+		instance->logFunctionCall(instance, status, #f "(component=0x%p, " m ")", instance->component, __VA_ARGS__); \
 	} \
 	return status;
 
@@ -48,7 +50,7 @@ static void cb_logMessage2(fmi2ComponentEnvironment componentEnvironment, fmi2St
 	if (instance->logFunctionCall) { \
 		FMIValueReferencesToString(instance, vr, nvr); \
 		FMIValuesToString(instance, nvr, value, FMI2 ## t ## Type); \
-		instance->logFunctionCall(status, instance->name, "fmi2" #s #t "(component=0x%p, vr=%s, nvr=%zu, value=%s)", instance->component, instance->buf1, nvr, instance->buf2); \
+		instance->logFunctionCall(instance, status, "fmi2" #s #t "(component=0x%p, vr=%s, nvr=%zu, value=%s)", instance->component, instance->buf1, nvr, instance->buf2); \
 	} \
 	return status;
 
@@ -59,14 +61,14 @@ Common Functions
 /* Inquire version numbers of header files and setting logging status */
 const char* FMI2GetTypesPlatform(FMIInstance *instance) {
 	if (instance->logFunctionCall) {
-			instance->logFunctionCall(fmi2OK, instance->name, "fmi2GetTypesPlatform()");
+			instance->logFunctionCall(instance, FMIOK, "fmi2GetTypesPlatform()");
 	}
 	return instance->fmi2GetTypesPlatform();
 }
 
 const char* FMI2GetVersion(FMIInstance *instance) {
 	if (instance->logFunctionCall) {
-		instance->logFunctionCall(fmi2OK, instance->name, "fmi2GetVersion()");
+		instance->logFunctionCall(instance, FMIOK, "fmi2GetVersion()");
 	}
 	return instance->fmi2GetVersion();
 }
@@ -75,7 +77,7 @@ fmi2Status FMI2SetDebugLogging(FMIInstance *instance, fmi2Boolean loggingOn, siz
 	fmi2Status status = instance->fmi2SetDebugLogging(instance->component, loggingOn, nCategories, categories);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nCategories, categories, FMI2StringType);
-		instance->logFunctionCall(status, instance->name, "fmi2SetDebugLogging(component=0x%p, loggingOn=%d, nCategories=%zu, categories=%s)",
+		instance->logFunctionCall(instance, status, "fmi2SetDebugLogging(component=0x%p, loggingOn=%d, nCategories=%zu, categories=%s)",
 			instance->component, loggingOn, nCategories, instance->buf2);
 	}
 	return status;
@@ -87,12 +89,12 @@ fmi2Status FMI2Instantiate(FMIInstance *instance, const char *fmuResourceLocatio
 
 	instance->fmiVersion = FMIVersion2;
 
-	instance->eventInfo.newDiscreteStatesNeeded = fmi2False;
-	instance->eventInfo.terminateSimulation = fmi2False;
-	instance->eventInfo.nominalsOfContinuousStatesChanged = fmi2False;
-	instance->eventInfo.valuesOfContinuousStatesChanged = fmi2False;
-	instance->eventInfo.nextEventTimeDefined = fmi2False;
-	instance->eventInfo.nextEventTime = 0.0;
+	instance->eventInfo2.newDiscreteStatesNeeded = fmi2False;
+	instance->eventInfo2.terminateSimulation = fmi2False;
+	instance->eventInfo2.nominalsOfContinuousStatesChanged = fmi2False;
+	instance->eventInfo2.valuesOfContinuousStatesChanged = fmi2False;
+	instance->eventInfo2.nextEventTimeDefined = fmi2False;
+	instance->eventInfo2.nextEventTime = 0.0;
 
 	instance->state = FMI2StartAndEndState;
 
@@ -163,16 +165,18 @@ fmi2Status FMI2Instantiate(FMIInstance *instance, const char *fmuResourceLocatio
 		LOAD_SYMBOL(GetStringStatus)
 	}
 
-	const fmi2CallbackFunctions functions = {
-		cb_logMessage2, calloc, free, NULL, instance
-	};
+	instance->functions2.logger = cb_logMessage2;
+	instance->functions2.allocateMemory = calloc;
+	instance->functions2.freeMemory = free;
+	instance->functions2.stepFinished = NULL;
+	instance->functions2.componentEnvironment = instance;
 
-	instance->component = instance->fmi2Instantiate(instance->name, fmuType, fmuGUID, fmuResourceLocation, &functions, visible, loggingOn);
+	instance->component = instance->fmi2Instantiate(instance->name, fmuType, fmuGUID, fmuResourceLocation, &instance->functions2, visible, loggingOn);
 
 	if (instance->logFunctionCall) {
-		instance->logFunctionCall(instance->component ? fmi2OK : fmi2Error, instance->name, 
+		instance->logFunctionCall(instance, instance->component ? FMIOK : FMIError,
 			"fmi2Instantiate(instanceName=\"%s\", fmuType=%d, fmuGUID=\"%s\", fmuResourceLocation=\"%s\", functions=0x%p, visible=%d, loggingOn=%d)",
-			instance->name, fmuType, fmuGUID, fmuResourceLocation, &functions, visible, loggingOn);
+			instance->name, fmuType, fmuGUID, fmuResourceLocation, &instance->functions2, visible, loggingOn);
 	}
 
 	if (!instance->component) goto fail;
@@ -190,7 +194,7 @@ void FMI2FreeInstance(FMIInstance *instance) {
 	instance->fmi2FreeInstance(instance->component);
 	
 	if (instance->logFunctionCall) {
-		instance->logFunctionCall(fmi2OK, instance->name, "fmi2FreeInstance(component=0x%p)", instance->component);
+		instance->logFunctionCall(instance, FMIOK, "fmi2FreeInstance(component=0x%p)", instance->component);
 	}
 }
 
@@ -329,7 +333,7 @@ fmi2Status FMI2SetContinuousStates(FMIInstance *instance, const fmi2Real x[], si
 	fmi2Status status = instance->fmi2SetContinuousStates(instance->component, x, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, x, FMI2RealType);
-		instance->logFunctionCall(status, instance->name, "fmi2SetContinuousStates(component=0x%p, x=%s, nx=%zu)", instance->component, instance->buf2, nx);
+		instance->logFunctionCall(instance, status, "fmi2SetContinuousStates(component=0x%p, x=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
 }
@@ -339,7 +343,7 @@ fmi2Status FMI2GetDerivatives(FMIInstance *instance, fmi2Real derivatives[], siz
 	fmi2Status status = instance->fmi2GetDerivatives(instance->component, derivatives, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, derivatives, FMI2RealType);
-		instance->logFunctionCall(status, instance->name, "fmi2GetDerivatives(component=0x%p, derivatives=%s, nx=%zu)", instance->component, instance->buf2, nx);
+		instance->logFunctionCall(instance, status, "fmi2GetDerivatives(component=0x%p, derivatives=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
 }
@@ -348,7 +352,7 @@ fmi2Status FMI2GetEventIndicators(FMIInstance *instance, fmi2Real eventIndicator
 	fmi2Status status = instance->fmi2GetEventIndicators(instance->component, eventIndicators, ni);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, ni, eventIndicators, FMI2RealType);
-		instance->logFunctionCall(status, instance->name, "fmi2GetEventIndicators(component=0x%p, eventIndicators=%s, ni=%zu)", instance->component, instance->buf2, ni);
+		instance->logFunctionCall(instance, status, "fmi2GetEventIndicators(component=0x%p, eventIndicators=%s, ni=%zu)", instance->component, instance->buf2, ni);
 	}
 	return status;
 }
@@ -357,7 +361,7 @@ fmi2Status FMI2GetContinuousStates(FMIInstance *instance, fmi2Real x[], size_t n
 	fmi2Status status = instance->fmi2GetContinuousStates(instance->component, x, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, x, FMI2RealType);
-		instance->logFunctionCall(status, instance->name, "fmi2GetContinuousStates(component=0x%p, x=%s, nx=%zu)", instance->component, instance->buf2, nx);
+		instance->logFunctionCall(instance, status, "fmi2GetContinuousStates(component=0x%p, x=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
 }
@@ -366,7 +370,7 @@ fmi2Status FMI2GetNominalsOfContinuousStates(FMIInstance *instance, fmi2Real x_n
 	fmi2Status status = instance->fmi2GetNominalsOfContinuousStates(instance->component, x_nominal, nx);
 	if (instance->logFunctionCall) {
 		FMIValuesToString(instance, nx, x_nominal, FMI2RealType);
-		instance->logFunctionCall(status, instance->name, "fmi2GetNominalsOfContinuousStates(component=0x%p, x_nominal=%s, nx=%zu)", instance->component, instance->buf2, nx);
+		instance->logFunctionCall(instance, status, "fmi2GetNominalsOfContinuousStates(component=0x%p, x_nominal=%s, nx=%zu)", instance->component, instance->buf2, nx);
 	}
 	return status;
 }

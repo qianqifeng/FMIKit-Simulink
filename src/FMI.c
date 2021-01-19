@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #ifdef _WIN32
 #define strdup _strdup
 #else

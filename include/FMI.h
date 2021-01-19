@@ -59,15 +59,21 @@ typedef enum {
 
 typedef unsigned int FMIValueReference;
 
-typedef void FMILogFunctionCall(FMIStatus status, const char *instanceName, const char *message, ...);
+typedef struct FMIInstance_ FMIInstance;
 
-typedef void FMILogMessage(const char * instanceName, FMIStatus status, const char * category,	const char * message);
+typedef void FMILogFunctionCall(FMIInstance *instance, FMIStatus status, const char *message, ...);
 
-typedef struct {
+typedef void FMILogMessage(FMIInstance *instance, FMIStatus status, const char *category, const char *message);
+
+struct FMIInstance_ {
 
 	/***************************************************
 	 Common Functions for FMI 1.0
 	****************************************************/
+
+	fmi1CallbackFunctions functions1;
+	fmi1EventInfo eventInfo1;
+
 	fmi1SetRealTYPE         *fmi1SetReal;
 	fmi1SetIntegerTYPE      *fmi1SetInteger;
 	fmi1SetBooleanTYPE      *fmi1SetBoolean;
@@ -81,7 +87,6 @@ typedef struct {
 	/***************************************************
 	 FMI 1.0 for Model Exchange Functions
 	****************************************************/
-	fmi1EventInfo eventInfo1;
 
 	fmi1GetModelTypesPlatformTYPE      *fmi1GetModelTypesPlatform;
 	fmi1GetVersionTYPE                 *fmi1GetVersion;
@@ -121,6 +126,9 @@ typedef struct {
 	/***************************************************
 	Common Functions for FMI 2.0
 	****************************************************/
+
+	fmi2CallbackFunctions functions2;
+	fmi2EventInfo eventInfo2;
 
 	/* required functions */
 	fmi2GetTypesPlatformTYPE         *fmi2GetTypesPlatform;
@@ -211,9 +219,7 @@ typedef struct {
 
 	FMIInterfaceType interfaceType;
 
-	fmi2EventInfo eventInfo;
-
-} FMIInstance;
+};
 
 FMIInstance *FMICreateInstance(const char *instanceName, const char *libraryPath, FMILogMessage *logMessage, FMILogFunctionCall *logFunctionCall);
 
