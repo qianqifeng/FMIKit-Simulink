@@ -1127,7 +1127,9 @@ static void mdlTerminate(SimStruct *S) {
 
 	logDebug(S, "mdlTerminate()");
 
-	FMIInstance *instance = (FMIInstance *)ssGetPWork(S)[0];
+	void **p = ssGetPWork(S);
+
+	FMIInstance *instance = (FMIInstance *)p[0];
 
 	if (isFMI1(S)) {
 
@@ -1147,6 +1149,17 @@ static void mdlTerminate(SimStruct *S) {
 	}
 
 	FMIFreeInstance(instance);
+
+	FILE *logFile = NULL;
+
+	if (p) {
+		logFile = (FILE *)p[1];
+		if (logFile) {
+			fclose(logFile);
+			void **p = ssGetPWork(S);
+			p[1] = NULL;
+		}
+	}
 }
 
 /*=============================*
