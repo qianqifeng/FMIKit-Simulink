@@ -6,6 +6,10 @@
 
 #define FMI_MAX_MESSAGE_LENGTH 4096
 
+#ifdef GRTFMI
+extern const char *FMU_RESOURCES_DIR;
+#endif
+
 #include "FMI.c"
 #include "FMI1.c"
 #include "FMI2.c"
@@ -28,21 +32,6 @@
 //#include <stdio.h>
 //#include <stdarg.h>
 //#include <string>
-//
-//extern "C" {
-//#include "simstruc.h"
-//
-//#ifdef GRTFMI
-//extern const char *FMU_RESOURCES_DIR;
-//#endif
-//}
-//
-
-//#include "FMU1.h"
-//#include "FMU2.h"
-//
-//using namespace std;
-//using namespace fmikit;
 
 
 typedef enum {
@@ -77,37 +66,45 @@ typedef enum {
 
 } Parameter;
 
+static const char *mxCharToChar(const mxChar *src, char *dst, size_t len) {
+	for (size_t i = 0; i < len; i++) {
+		dst[i] = src[i];
+	}
+	dst[len] = '\0';
+	return dst;
+}
 
 static const char* getStringParam(SimStruct *S, int index) {
 
 	const mxArray *pa = ssGetSFcnParam(S, index);
 
 	size_t n = mxGetN(pa);
-	size_t m = mxGetM(pa);
-
-	// TODO: assert m == 1
 
 	if (n < 1) return "";
 
-	const mxChar* data = (const mxChar*)mxGetData(pa);
+	const mxChar *data = (const mxChar *)mxGetData(pa);
 
-	char *string = (char *)mxMalloc(n + 1);
-	memset(string, '\0', n + 1);
-	wcstombs(string, data, n);
+	if (!data) return "";
 
-	return string;
+	char *cstr = (char *)mxMalloc(n + 1);
+
+	return mxCharToChar(data, cstr, n);
 }
 
 static bool isFMI1(SimStruct *S) {
 	const mxArray *pa = ssGetSFcnParam(S, fmiVersionParam);
-	const mxChar* data = (const mxChar*)mxGetData(pa);
-	return mxGetN(pa) == 3 && wcsncmp(data, L"1.0", 3) == 0;
+	const mxChar *data = (const mxChar*)mxGetData(pa);
+	char cstr[4];
+	mxCharToChar(data, cstr, 3);
+	return mxGetN(pa) == 3 && strncmp(cstr, "1.0", 3) == 0;
 }
 
 static bool isFMI2(SimStruct *S) {
 	const mxArray *pa = ssGetSFcnParam(S, fmiVersionParam);
-	const mxChar* data = (const mxChar*)mxGetData(pa);
-	return mxGetN(pa) == 3 && wcsncmp(data, L"2.0", 3) == 0;
+	const mxChar *data = (const mxChar*)mxGetData(pa);
+	char cstr[4];
+	mxCharToChar(data, cstr, 3);
+	return mxGetN(pa) == 3 && strncmp(cstr, "2.0", 3) == 0;
 }
 
 static bool isME(SimStruct *S) { 
@@ -840,9 +837,12 @@ static void mdlStart(SimStruct *S) {
 	const char *modelIdentifier = getStringParam(S, modelIdentifierParam);
 
 #ifdef GRTFMI
-	auto unzipdir = FMU_RESOURCES_DIR + string("/") + modelIdentifier(S);
+	char *unzipdir = calloc(MAX_PATH, sizeof(char));
+	strncpy(unzipdir, FMU_RESOURCES_DIR, MAX_PATH);
+	strncat(unzipdir, "/", MAX_PATH);
+	strncat(unzipdir, modelIdentifier, MAX_PATH);
 #else
-	const char *unzipdir = getStringParam(S, unzipDirectoryParam);
+	char *unzipdir = getStringParam(S, unzipDirectoryParam);
 #endif
 
 #ifdef _WIN32
